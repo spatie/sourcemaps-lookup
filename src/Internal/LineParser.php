@@ -1,20 +1,18 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Spatie\SourcemapsLookup\Internal;
 
 use Spatie\SourcemapsLookup\Exceptions\InvalidSourceMap;
 
-final class LineParser
+class LineParser
 {
     /**
      * Parse the segments between $start (inclusive) and $end (exclusive) of $mappings.
      *
-     * Segments are returned as a packed binary string (20 bytes each, 5 × signed
+     * Segments are returned as a packed binary string (20 bytes each, 5 x signed
      * int32: generatedColumn, sourceIndex, sourceLine, sourceColumn, nameIndex).
      * Absent sourceIndex/nameIndex are encoded as -1. Packing avoids allocating a
-     * Segment object per mapping (~10× memory reduction on large maps).
+     * Segment object per mapping (~10x memory reduction on large maps).
      *
      * State is a 4-tuple [sourceIndex, sourceLine, sourceColumn, nameIndex].
      *
@@ -42,7 +40,7 @@ final class LineParser
 
         $offset = $start;
         while ($offset < $end) {
-            // Empty segment (",,") — nothing to decode, just skip the comma.
+            // Empty segment (",,"): nothing to decode, just skip the comma.
             if ($mappings[$offset] === ',') {
                 $offset++;
 
@@ -51,14 +49,14 @@ final class LineParser
 
             $segStart = $offset;
 
-            // Field 1: generatedColumn delta — always present.
+            // Field 1: generatedColumn delta, always present.
             $generatedColumn += Base64Vlq::decode($mappings, $offset);
 
             if ($offset >= $end || $mappings[$offset] === ',') {
                 // 1-field (unmapped) segment.
                 $packed .= pack('l5', $generatedColumn, $NULL, 0, 0, $NULL);
             } else {
-                // Fields 2–4: sourceIndex, sourceLine, sourceColumn deltas.
+                // Fields 2 to 4: sourceIndex, sourceLine, sourceColumn deltas.
                 $sourceIndex += Base64Vlq::decode($mappings, $offset);
                 if ($sourceIndex < 0 || $sourceIndex >= $sourceCount) {
                     throw new InvalidSourceMap(

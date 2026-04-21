@@ -1,15 +1,15 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Spatie\SourcemapsLookup\Internal;
 
-final class LineIndex
+use OutOfBoundsException;
+
+class LineIndex
 {
     /** @var list<int> byte offset where each line starts */
-    private readonly array $offsets;
+    private array $offsets;
 
-    private readonly int $totalLength;
+    private int $totalLength;
 
     public function __construct(string $mappings)
     {
@@ -31,7 +31,7 @@ final class LineIndex
     public function offset(int $line): int
     {
         if ($line < 0 || $line >= count($this->offsets)) {
-            throw new \OutOfBoundsException("Line $line out of range (0..".(count($this->offsets) - 1).')');
+            throw new OutOfBoundsException("Line $line out of range (0..".(count($this->offsets) - 1).')');
         }
 
         return $this->offsets[$line];
@@ -40,7 +40,7 @@ final class LineIndex
     public function end(int $line): int
     {
         if ($line < 0 || $line >= count($this->offsets)) {
-            throw new \OutOfBoundsException("Line $line out of range");
+            throw new OutOfBoundsException("Line $line out of range");
         }
 
         return $line + 1 < count($this->offsets)

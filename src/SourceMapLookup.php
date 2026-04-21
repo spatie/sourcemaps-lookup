@@ -1,31 +1,30 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Spatie\SourcemapsLookup;
 
+use JsonException;
 use Spatie\SourcemapsLookup\Exceptions\InvalidSourceMap;
 use Spatie\SourcemapsLookup\Exceptions\UnsupportedSourceMap;
 use Spatie\SourcemapsLookup\Internal\LineIndex;
 use Spatie\SourcemapsLookup\Internal\LineParser;
 use Spatie\SourcemapsLookup\Internal\Segment;
 
-final class SourceMapLookup
+class SourceMapLookup
 {
-    private readonly string $mappings;
+    private string $mappings;
 
-    private readonly LineIndex $lineIndex;
-
-    /** @var list<?string> */
-    private readonly array $sources;
+    private LineIndex $lineIndex;
 
     /** @var list<?string> */
-    private readonly array $sourcesContent;
+    private array $sources;
+
+    /** @var list<?string> */
+    private array $sourcesContent;
 
     /** @var list<string> */
-    private readonly array $names;
+    private array $names;
 
-    private readonly string $sourceRoot;
+    private string $sourceRoot;
 
     /** @var array<int, string> Packed-binary segment buffers (20 bytes/segment). */
     private array $segmentCache = [];
@@ -96,7 +95,7 @@ final class SourceMapLookup
     {
         try {
             $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
+        } catch (JsonException $e) {
             throw new InvalidSourceMap('Invalid JSON: '.$e->getMessage(), 0, $e);
         }
         if (! is_array($data)) {
@@ -169,7 +168,7 @@ final class SourceMapLookup
 
     /**
      * Reverse lookup: given a position in an original source file, return the
-     * generated (line, column) it maps to. Exact match only — no nearest-preceding
+     * generated (line, column) it maps to. Exact match only, no nearest-preceding
      * fallback. Useful for editor tooling and coverage mapping, not for stack
      * traces (use lookup() for those).
      *

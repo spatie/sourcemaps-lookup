@@ -1,10 +1,8 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Spatie\SourcemapsLookup;
 
-final readonly class Position
+class Position
 {
     public function __construct(
         public int $sourceLine,

@@ -1,13 +1,11 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Spatie\SourcemapsLookup\Internal;
 
-final readonly class Segment
+class Segment
 {
     /**
-     * Bytes per packed segment record: 5 × signed int32 (native byte order).
+     * Bytes per packed segment record: 5 x signed int32 (native byte order).
      * Layout: generatedColumn, sourceIndex, sourceLine, sourceColumn, nameIndex.
      *
      * Signed (not unsigned) because sourceLine/sourceColumn can legitimately go
@@ -17,7 +15,7 @@ final readonly class Segment
     public const int SIZE = 20;
 
     /**
-     * Sentinel for absent sourceIndex (→ unmapped) or nameIndex (→ no name).
+     * Sentinel for absent sourceIndex (unmapped) or nameIndex (no name).
      * Both are array indices, so never legitimately negative.
      */
     public const int NULL_FIELD = -1;

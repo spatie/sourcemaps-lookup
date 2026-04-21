@@ -1,12 +1,10 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Spatie\SourcemapsLookup\Internal;
 
 use Spatie\SourcemapsLookup\Exceptions\InvalidSourceMap;
 
-final class Base64Vlq
+class Base64Vlq
 {
     /** @var array<int,int> */
     private static array $table;
