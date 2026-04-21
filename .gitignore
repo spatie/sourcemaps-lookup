@@ -1,7 +1,23 @@
+# Composer
 /vendor/
 composer.lock
-.phpunit.result.cache
+
+# Caches
 .phpunit.cache/
+.phpunit.result.cache
+.php-cs-fixer.cache
+/build
+/coverage
+
+# Editors
+/.idea
+/.fleet
+/.vscode
+
+# Generated local configs
+phpunit.xml
+
+# Project-specific
 /benchmarks/fixtures/*.js.map
 /benchmarks/fixtures/node_modules/
 /docs/superpowers/
