@@ -1,4 +1,4 @@
-# Fast, memory-efficient Source Map v3 lookup for PHP
+# Fast & memory-efficient JS source map lookup for PHP
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/spatie/sourcemaps-lookup.svg?style=flat-square)](https://packagist.org/packages/spatie/sourcemaps-lookup)
 [![Tests](https://img.shields.io/github/actions/workflow/status/spatie/sourcemaps-lookup/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/spatie/sourcemaps-lookup/actions/workflows/run-tests.yml)
