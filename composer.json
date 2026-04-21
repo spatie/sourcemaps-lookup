@@ -1,0 +1,44 @@
+{
+    "name": "spatie/sourcemaps-lookup",
+    "description": "Fast, memory-efficient Source Map v3 lookup for PHP",
+    "keywords": ["spatie", "sourcemap", "source-map", "lookup"],
+    "homepage": "https://github.com/spatie/sourcemaps-lookup",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Spatie",
+            "email": "info@spatie.be",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.3"
+    },
+    "require-dev": {
+        "pestphp/pest": "^3.0",
+        "axy/sourcemap": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Spatie\\SourcemapsLookup\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Spatie\\SourcemapsLookup\\Tests\\": "tests/",
+            "Spatie\\SourcemapsLookup\\Benchmarks\\": "benchmarks/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest",
+        "bench": "php benchmarks/compare.php"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

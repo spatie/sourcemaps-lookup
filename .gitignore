@@ -1,0 +1,7 @@
+/vendor/
+composer.lock
+.phpunit.result.cache
+.phpunit.cache/
+/benchmarks/fixtures/*.js.map
+/benchmarks/fixtures/node_modules/
+/docs/superpowers/

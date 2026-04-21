@@ -1,0 +1,7 @@
+{
+    "version": 3,
+    "sourceRoot": "webpack:///",
+    "sources": ["./src/a.ts", "./src/b.ts"],
+    "names": [],
+    "mappings": "AAAA,CAAC"
+}
