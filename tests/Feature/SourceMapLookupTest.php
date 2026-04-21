@@ -22,7 +22,7 @@ it('constructs from JSON', function () {
 });
 
 it('constructs from a file path', function () {
-    $map = SourceMapLookup::fromFile(__DIR__ . '/../fixtures/axy/app.js.map');
+    $map = SourceMapLookup::fromFile(__DIR__.'/../fixtures/axy/app.js.map');
     expect($map)->toBeInstanceOf(SourceMapLookup::class);
     expect($map->lookup(2, 21)?->sourceFileName)->toBe('carry.ts');
 });
@@ -209,7 +209,7 @@ it('lazily parses only lines touched (sanity: second lookup reuses cache)', func
 });
 
 it('returns null for positions inside unmapped segments (handcrafted)', function () {
-    $map = SourceMapLookup::fromJson(file_get_contents(__DIR__ . '/../fixtures/handcrafted/unmapped-segments.js.map'));
+    $map = SourceMapLookup::fromJson(file_get_contents(__DIR__.'/../fixtures/handcrafted/unmapped-segments.js.map'));
     // Segment breakdown on line 1:
     //   seg1 genCol=0 (mapped)
     //   seg2 genCol=1 (unmapped, 1-field 'C' = delta 1)
@@ -221,17 +221,17 @@ it('returns null for positions inside unmapped segments (handcrafted)', function
 });
 
 it('prefixes sourceRoot (handcrafted)', function () {
-    $map = SourceMapLookup::fromJson(file_get_contents(__DIR__ . '/../fixtures/handcrafted/source-root.js.map'));
+    $map = SourceMapLookup::fromJson(file_get_contents(__DIR__.'/../fixtures/handcrafted/source-root.js.map'));
     expect($map->lookup(1, 0)->sourceFileName)->toBe('webpack:///./src/a.ts');
 });
 
 it('returns null sourceFileName when sources entry is null (handcrafted)', function () {
-    $map = SourceMapLookup::fromJson(file_get_contents(__DIR__ . '/../fixtures/handcrafted/null-source.js.map'));
+    $map = SourceMapLookup::fromJson(file_get_contents(__DIR__.'/../fixtures/handcrafted/null-source.js.map'));
     expect($map->lookup(1, 0)->sourceFileName)->toBeNull();
 });
 
 it('walks through empty lines correctly (handcrafted)', function () {
-    $map = SourceMapLookup::fromJson(file_get_contents(__DIR__ . '/../fixtures/handcrafted/empty-lines.js.map'));
+    $map = SourceMapLookup::fromJson(file_get_contents(__DIR__.'/../fixtures/handcrafted/empty-lines.js.map'));
     expect($map->lookup(5, 0))->not->toBeNull();
     expect($map->lookup(5, 0)->sourceLine)->toBe(1);
 });

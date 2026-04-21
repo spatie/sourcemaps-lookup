@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use axy\codecs\base64vlq\Encoder;
+use Spatie\SourcemapsLookup\Exceptions\InvalidSourceMap;
 use Spatie\SourcemapsLookup\Internal\Base64Vlq;
 
 it('decodes zero', function () {
@@ -46,7 +48,7 @@ it('advances offset past only consumed chars', function () {
 
 it('round-trips a range of integers', function (int $value) {
     // Encode using known-good axy encoder, decode with ours
-    $encoder = \axy\codecs\base64vlq\Encoder::getStandardInstance();
+    $encoder = Encoder::getStandardInstance();
     $encoded = $encoder->encode($value);
     $offset = 0;
     expect(Base64Vlq::decode($encoded, $offset))->toBe($value);
@@ -56,7 +58,7 @@ it('round-trips a range of integers', function (int $value) {
 it('throws on invalid base64 character', function () {
     $offset = 0;
     Base64Vlq::decode('!', $offset);
-})->throws(\Spatie\SourcemapsLookup\Exceptions\InvalidSourceMap::class);
+})->throws(InvalidSourceMap::class);
 
 it('decodes VLQ "-0" to -2^31 per ECMA-426 §VLQSignedValue', function () {
     // "B" = base64 digit 1: continuation=0, value=1 => negative=true, magnitude=0 => -2^31

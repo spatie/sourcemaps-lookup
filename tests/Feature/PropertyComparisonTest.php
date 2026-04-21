@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use axy\codecs\base64vlq\Encoder;
 use axy\sourcemap\PosGenerated;
 use axy\sourcemap\PosMap;
 use axy\sourcemap\SourceMap as AxySourceMap;
@@ -36,6 +37,7 @@ function generateRandomMap(int $seed, int $lineCount, int $segmentsPerLine): arr
             $shape = mt_rand(0, 2);
             if ($shape === 0) {
                 $lineSegs[] = [$genColDelta];
+
                 continue;
             }
 
@@ -50,12 +52,17 @@ function generateRandomMap(int $seed, int $lineCount, int $segmentsPerLine): arr
 
             $runningSrcIdx = $newSrcIdx;
             $runningSrcLine += $srcLineDelta;
-            if ($runningSrcLine < 0) $runningSrcLine = 0;
+            if ($runningSrcLine < 0) {
+                $runningSrcLine = 0;
+            }
             $runningSrcCol += $srcColDelta;
-            if ($runningSrcCol < 0) $runningSrcCol = 0;
+            if ($runningSrcCol < 0) {
+                $runningSrcCol = 0;
+            }
 
             if ($shape === 1) {
                 $lineSegs[] = [$genColDelta, $srcIdxDelta, $srcLineDelta, $srcColDelta];
+
                 continue;
             }
 
@@ -72,7 +79,7 @@ function generateRandomMap(int $seed, int $lineCount, int $segmentsPerLine): arr
         $segments[] = $lineSegs;
     }
 
-    $encoder = \axy\codecs\base64vlq\Encoder::getStandardInstance();
+    $encoder = Encoder::getStandardInstance();
 
     $mappings = implode(';', array_map(function (array $line) use ($encoder) {
         $parts = array_map(function (array $fields) use ($encoder) {
@@ -80,8 +87,10 @@ function generateRandomMap(int $seed, int $lineCount, int $segmentsPerLine): arr
             foreach ($fields as $f) {
                 $encoded .= $encoder->encode($f);
             }
+
             return $encoded;
         }, $line);
+
         return implode(',', $parts);
     }, $segments));
 

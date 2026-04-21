@@ -151,7 +151,7 @@ it('throws when a 5-field segment references an out-of-range name index', functi
 it('matches axy getPosition on app.js.map (line 2, col 21)', function () {
     // axy is 0-based internally: its getPosition(1, 21) == our lookup(2, 21).
     $map = SourceMapLookup::fromJson(
-        file_get_contents(__DIR__ . '/../fixtures/axy/app.js.map')
+        file_get_contents(__DIR__.'/../fixtures/axy/app.js.map')
     );
     $pos = $map->lookup(2, 21);
     expect($pos)->not->toBeNull();
@@ -163,7 +163,7 @@ it('matches axy getPosition on app.js.map (line 2, col 21)', function () {
 
 it('returns null beyond the mapping range (SearchTest parity)', function () {
     $map = SourceMapLookup::fromJson(
-        file_get_contents(__DIR__ . '/../fixtures/axy/app.js.map')
+        file_get_contents(__DIR__.'/../fixtures/axy/app.js.map')
     );
     expect($map->lookup(200, 10))->toBeNull();
 });

@@ -22,6 +22,7 @@ final class OursAdapter
         if ($pos === null) {
             return null;
         }
+
         return [
             'line' => $pos->sourceLine,
             'column' => $pos->sourceColumn,

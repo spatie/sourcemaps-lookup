@@ -19,7 +19,10 @@ function axyLookup(AxySourceMap $map, int $line, int $column): ?array
             break;
         }
     }
-    if ($best === null) return null;
+    if ($best === null) {
+        return null;
+    }
+
     return [
         'sourceLine' => $best->source->line + 1,
         'sourceColumn' => $best->source->column,
@@ -31,7 +34,10 @@ function axyLookup(AxySourceMap $map, int $line, int $column): ?array
 function oursLookup(SourceMapLookup $map, int $line, int $column): ?array
 {
     $p = $map->lookup($line, $column);
-    if ($p === null) return null;
+    if ($p === null) {
+        return null;
+    }
+
     return [
         'sourceLine' => $p->sourceLine,
         'sourceColumn' => $p->sourceColumn,
@@ -41,9 +47,9 @@ function oursLookup(SourceMapLookup $map, int $line, int $column): ?array
 }
 
 dataset('axyFixtures', [
-    'app' => [__DIR__ . '/../fixtures/axy/app.js.map'],
-    'map' => [__DIR__ . '/../fixtures/axy/map.js.map'],
-    'scontent' => [__DIR__ . '/../fixtures/axy/scontent.js.map'],
+    'app' => [__DIR__.'/../fixtures/axy/app.js.map'],
+    'map' => [__DIR__.'/../fixtures/axy/map.js.map'],
+    'scontent' => [__DIR__.'/../fixtures/axy/scontent.js.map'],
 ]);
 
 it('matches axy lookup() on the first few positions of real fixtures', function (string $path) {

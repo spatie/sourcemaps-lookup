@@ -8,7 +8,6 @@ use Spatie\SourcemapsLookup\SourceMapLookup;
  * VLQ edge-case coverage: multi-byte continuations and negative deltas.
  * Encoder below is the inverse of src/Internal/Base64Vlq.php.
  */
-
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 function vlqEncode(int $value): string
@@ -24,6 +23,7 @@ function vlqEncode(int $value): string
         }
         $out .= B64[$digit];
     } while ($v > 0);
+
     return $out;
 }
 
@@ -32,12 +32,13 @@ function encodeLine(array $segments): string
 {
     $parts = [];
     foreach ($segments as $s) {
-        $p = vlqEncode($s[0]) . vlqEncode($s[1]) . vlqEncode($s[2]) . vlqEncode($s[3]);
+        $p = vlqEncode($s[0]).vlqEncode($s[1]).vlqEncode($s[2]).vlqEncode($s[3]);
         if ($s[4] !== null) {
             $p .= vlqEncode($s[4]);
         }
         $parts[] = $p;
     }
+
     return implode(',', $parts);
 }
 

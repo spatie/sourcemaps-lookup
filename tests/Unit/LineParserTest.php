@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Spatie\SourcemapsLookup\Exceptions\InvalidSourceMap;
 use Spatie\SourcemapsLookup\Internal\LineParser;
 use Spatie\SourcemapsLookup\Internal\Segment;
 
@@ -16,6 +17,7 @@ function decodeAll(string $packed): array
     for ($i = 0; $i < $count; $i++) {
         $out[] = Segment::fromPacked($packed, $i);
     }
+
     return $out;
 }
 
@@ -79,7 +81,7 @@ it('returns exactly 4 state fields, with no generatedColumn carried across lines
 it('throws on invalid field count', function () use ($initialState) {
     // "AA" = 2 fields - not allowed (must be 1, 4, or 5)
     LineParser::parse('AA', 0, 2, $initialState);
-})->throws(\Spatie\SourcemapsLookup\Exceptions\InvalidSourceMap::class);
+})->throws(InvalidSourceMap::class);
 
 it('uses the substring within the given bounds', function () use ($initialState) {
     // full string is "AAAA;CAEC", line 1 starts at offset 5 and ends at 9

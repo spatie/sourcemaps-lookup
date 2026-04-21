@@ -13,17 +13,23 @@ use Spatie\SourcemapsLookup\Internal\Segment;
 final class SourceMapLookup
 {
     private readonly string $mappings;
+
     private readonly LineIndex $lineIndex;
+
     /** @var list<?string> */
     private readonly array $sources;
+
     /** @var list<?string> */
     private readonly array $sourcesContent;
+
     /** @var list<string> */
     private readonly array $names;
+
     private readonly string $sourceRoot;
 
     /** @var array<int, string> Packed-binary segment buffers (20 bytes/segment). */
     private array $segmentCache = [];
+
     /** @var array<int, array{0:int,1:int,2:int,3:int}> */
     private array $stateCache = [];
 
@@ -91,11 +97,12 @@ final class SourceMapLookup
         try {
             $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
         } catch (\JsonException $e) {
-            throw new InvalidSourceMap('Invalid JSON: ' . $e->getMessage(), 0, $e);
+            throw new InvalidSourceMap('Invalid JSON: '.$e->getMessage(), 0, $e);
         }
         if (! is_array($data)) {
             throw new InvalidSourceMap('Decoded JSON must be an object');
         }
+
         return new self($data);
     }
 
@@ -104,6 +111,7 @@ final class SourceMapLookup
         if (! is_file($path) || ! is_readable($path)) {
             throw new InvalidSourceMap("Could not read source map file: $path");
         }
+
         return self::fromJson(file_get_contents($path));
     }
 
@@ -121,14 +129,13 @@ final class SourceMapLookup
     /**
      * Resolve a generated position (line, column) to its original source position.
      *
-     * @param int $line    1-based line in the generated file.
-     * @param int $column  0-based column in the generated file.
-     *
+     * @param  int  $line  1-based line in the generated file.
+     * @param  int  $column  0-based column in the generated file.
      * @return Position|null Returns null in two distinct cases (treated the same):
-     *   - the nearest-preceding segment for that position is a 1-field "unmapped"
-     *     segment (bundler-inserted code with no source origin);
-     *   - no segment covers the queried position (blank line, column before the
-     *     first segment, or line beyond the map).
+     *                       - the nearest-preceding segment for that position is a 1-field "unmapped"
+     *                       segment (bundler-inserted code with no source origin);
+     *                       - no segment covers the queried position (blank line, column before the
+     *                       first segment, or line beyond the map).
      *
      * Throws InvalidSourceMap only if the map itself is malformed (bad mappings
      * encoding or out-of-range source/name index). A successful-but-empty lookup
@@ -169,14 +176,15 @@ final class SourceMapLookup
      * Builds a full reverse index on first call (parses every line), so the cost
      * is paid once. Callers that only use lookup() never pay this cost.
      *
-     * @param int $fileIndex     Index into the map's sources array.
-     * @param int $sourceLine    1-based line in the original source file.
-     * @param int $sourceColumn  0-based column in the original source file.
+     * @param  int  $fileIndex  Index into the map's sources array.
+     * @param  int  $sourceLine  1-based line in the original source file.
+     * @param  int  $sourceColumn  0-based column in the original source file.
      */
     public function findGenerated(int $fileIndex, int $sourceLine, int $sourceColumn): ?GeneratedPosition
     {
         $this->reverseIndex ??= $this->buildReverseIndex();
-        $key = ($sourceLine - 1) . ',' . $sourceColumn;
+        $key = ($sourceLine - 1).','.$sourceColumn;
+
         return $this->reverseIndex[$fileIndex][$key] ?? null;
     }
 
@@ -196,7 +204,7 @@ final class SourceMapLookup
                 if (! $seg->isMapped()) {
                     continue;
                 }
-                $key = $seg->sourceLine . ',' . $seg->sourceColumn;
+                $key = $seg->sourceLine.','.$seg->sourceColumn;
                 if (! isset($index[$seg->sourceIndex][$key])) {
                     $index[$seg->sourceIndex][$key] = new GeneratedPosition(
                         line: $lineIdx + 1,
@@ -205,6 +213,7 @@ final class SourceMapLookup
                 }
             }
         }
+
         return $index;
     }
 
@@ -259,6 +268,7 @@ final class SourceMapLookup
                 $hi = $mid - 1;
             }
         }
+
         return $best < 0 ? null : Segment::fromPacked($packed, $best);
     }
 
@@ -270,7 +280,8 @@ final class SourceMapLookup
         }
         $prefix = str_ends_with($this->sourceRoot, '/')
             ? $this->sourceRoot
-            : $this->sourceRoot . '/';
-        return $prefix . $name;
+            : $this->sourceRoot.'/';
+
+        return $prefix.$name;
     }
 }

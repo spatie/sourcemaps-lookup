@@ -12,6 +12,7 @@ function flareSnippet(SourceMapLookup $map, Position $pos, int $context = 10): a
     $lines = explode("\n", $content);
     $start = max(0, $pos->sourceLine - 1 - $context);
     $end = min(count($lines) - 1, $pos->sourceLine - 1 + $context);
+
     return array_slice($lines, $start, $end - $start + 1);
 }
 

@@ -41,4 +41,4 @@ it('handles empty lines', function () {
 it('throws on out-of-range index', function () {
     $idx = new LineIndex('AA;BB');
     $idx->offset(5);
-})->throws(\OutOfBoundsException::class);
+})->throws(OutOfBoundsException::class);

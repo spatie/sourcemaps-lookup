@@ -44,6 +44,7 @@ final readonly class Segment
             return new self(generatedColumn: $f[1]);
         }
         $nameIdx = $f[5] === self::NULL_FIELD ? null : $f[5];
+
         return new self(
             generatedColumn: $f[1],
             sourceIndex: $srcIdx,

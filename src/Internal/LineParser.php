@@ -18,11 +18,11 @@ final class LineParser
      *
      * State is a 4-tuple [sourceIndex, sourceLine, sourceColumn, nameIndex].
      *
-     * @param array{0:int,1:int,2:int,3:int} $state
-     * @param int $sourceCount  Number of entries in the map's `sources` array; any decoded
-     *                          sourceIndex >= this value triggers InvalidSourceMap.
-     *                          Pass PHP_INT_MAX to skip the check.
-     * @param int $nameCount    Same, for `names`.
+     * @param  array{0:int,1:int,2:int,3:int}  $state
+     * @param  int  $sourceCount  Number of entries in the map's `sources` array; any decoded
+     *                            sourceIndex >= this value triggers InvalidSourceMap.
+     *                            Pass PHP_INT_MAX to skip the check.
+     * @param  int  $nameCount  Same, for `names`.
      * @return array{0: string, 1: array{0:int,1:int,2:int,3:int}}
      */
     public static function parse(
@@ -45,6 +45,7 @@ final class LineParser
             // Empty segment (",,") — nothing to decode, just skip the comma.
             if ($mappings[$offset] === ',') {
                 $offset++;
+
                 continue;
             }
 

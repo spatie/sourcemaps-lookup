@@ -47,6 +47,7 @@ final class Base64Vlq
         if ($negative && $value === 0) {
             return -(1 << 31);  // -2^31 per ECMA-426 spec
         }
+
         return $negative ? -$value : $value;
     }
 
@@ -59,6 +60,7 @@ final class Base64Vlq
         for ($i = 0; $i < 64; $i++) {
             $table[ord($alpha[$i])] = $i;
         }
+
         return $table;
     }
 }

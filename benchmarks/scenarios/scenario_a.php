@@ -5,7 +5,7 @@ declare(strict_types=1);
 // Args: <adapter-fqn> <fixture-path>
 // Output (stdout): JSON {"wall_ns": int, "peak_bytes": int}
 
-require __DIR__ . '/../../vendor/autoload.php';
+require __DIR__.'/../../vendor/autoload.php';
 
 [$_, $adapterClass, $fixture] = $argv;
 

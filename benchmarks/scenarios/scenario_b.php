@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require __DIR__ . '/../../vendor/autoload.php';
+require __DIR__.'/../../vendor/autoload.php';
 
 // Args: <adapter-fqn> <fixture-path> <points-file>
 // points-file: JSON array of [line, column] tuples (1-based line, 0-based column).

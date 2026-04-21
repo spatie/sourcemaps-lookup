@@ -4,6 +4,4 @@ declare(strict_types=1);
 
 namespace Spatie\SourcemapsLookup\Exceptions;
 
-class UnsupportedSourceMap extends InvalidSourceMap
-{
-}
+class UnsupportedSourceMap extends InvalidSourceMap {}

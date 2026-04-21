@@ -8,7 +8,7 @@ use Spatie\SourcemapsLookup\SourceMapLookup;
 it('resolves a source position back to its generated position', function () {
     // app.js.map: lookup(2, 21) -> carry.ts line 6, col 20, name=carry.
     // So findGenerated(0, 6, 20) should return (line 2, col 21).
-    $map = SourceMapLookup::fromFile(__DIR__ . '/../fixtures/axy/app.js.map');
+    $map = SourceMapLookup::fromFile(__DIR__.'/../fixtures/axy/app.js.map');
     $gen = $map->findGenerated(0, 6, 20);
     expect($gen)->toBeInstanceOf(GeneratedPosition::class);
     expect($gen->line)->toBe(2);
@@ -16,13 +16,13 @@ it('resolves a source position back to its generated position', function () {
 });
 
 it('returns null for an exact position the map does not mention', function () {
-    $map = SourceMapLookup::fromFile(__DIR__ . '/../fixtures/axy/app.js.map');
+    $map = SourceMapLookup::fromFile(__DIR__.'/../fixtures/axy/app.js.map');
     // A source column that's not a segment origin.
     expect($map->findGenerated(0, 6, 999))->toBeNull();
 });
 
 it('returns null for an unknown source file index', function () {
-    $map = SourceMapLookup::fromFile(__DIR__ . '/../fixtures/axy/app.js.map');
+    $map = SourceMapLookup::fromFile(__DIR__.'/../fixtures/axy/app.js.map');
     expect($map->findGenerated(99, 1, 0))->toBeNull();
 });
 

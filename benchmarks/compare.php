@@ -1,27 +1,32 @@
 <?php
 
 declare(strict_types=1);
+use Spatie\SourcemapsLookup\Benchmarks\Adapters\AxyAdapter;
+use Spatie\SourcemapsLookup\Benchmarks\Adapters\OursAdapter;
+use Spatie\SourcemapsLookup\Internal\LineIndex;
+use Spatie\SourcemapsLookup\Internal\LineParser;
+use Spatie\SourcemapsLookup\Internal\Segment;
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 const RUNS = 10;
 const PER_SAMPLE_TIMEOUT_SEC = 30;
 
 $adapters = [
-    'axy' => \Spatie\SourcemapsLookup\Benchmarks\Adapters\AxyAdapter::class,
-    'ours' => \Spatie\SourcemapsLookup\Benchmarks\Adapters\OursAdapter::class,
+    'axy' => AxyAdapter::class,
+    'ours' => OursAdapter::class,
 ];
 
 $fixtures = [
-    'small' => __DIR__ . '/fixtures/small.js.map',
-    'medium' => __DIR__ . '/fixtures/medium.js.map',
-    'large' => __DIR__ . '/fixtures/large.js.map',
+    'small' => __DIR__.'/fixtures/small.js.map',
+    'medium' => __DIR__.'/fixtures/medium.js.map',
+    'large' => __DIR__.'/fixtures/large.js.map',
 ];
 
 $scenarios = [
-    'A' => __DIR__ . '/scenarios/scenario_a.php',
-    'B' => __DIR__ . '/scenarios/scenario_b.php',
-    'C' => __DIR__ . '/scenarios/scenario_c.php',
+    'A' => __DIR__.'/scenarios/scenario_a.php',
+    'B' => __DIR__.'/scenarios/scenario_b.php',
+    'C' => __DIR__.'/scenarios/scenario_c.php',
 ];
 
 $grouped = [];
@@ -33,12 +38,13 @@ $pointFiles = [];
 foreach ($fixtures as $fixName => $fixPath) {
     if (! is_file($fixPath)) {
         fwrite(STDERR, "skip fixture $fixName (missing; run benchmarks/fixtures/build.sh)\n");
+
         continue;
     }
 
     // Pre-compute scenario-B points ONCE per fixture via axy oracle.
     // Done here so the per-subprocess measurement in scenario_b.php is clean.
-    fwrite(STDERR, sprintf("[prep] %s: picking realistic B-scenario points...", $fixName));
+    fwrite(STDERR, sprintf('[prep] %s: picking realistic B-scenario points...', $fixName));
     $t0 = hrtime(true);
     $pointFiles[$fixName] = pickScenarioBPoints($fixPath);
     fwrite(STDERR, sprintf(" %d points in %.1fs\n",
@@ -52,7 +58,7 @@ foreach ($fixtures as $fixName => $fixPath) {
             $combo++;
             $t0 = hrtime(true);
             fwrite(STDERR, sprintf(
-                "[%d/%d] %s %s %s: running %d samples... ",
+                '[%d/%d] %s %s %s: running %d samples... ',
                 $combo, $totalCombos, $fixName, $scName, $adName, RUNS
             ));
             $extraArgs = $scName === 'B' ? [$pointFiles[$fixName]] : [];
@@ -88,7 +94,7 @@ function pickScenarioBPoints(string $fixturePath): string
 {
     $data = json_decode(file_get_contents($fixturePath), true, 512, JSON_THROW_ON_ERROR);
     $mappings = $data['mappings'] ?? '';
-    $lineIndex = new \Spatie\SourcemapsLookup\Internal\LineIndex($mappings);
+    $lineIndex = new LineIndex($mappings);
     $totalLines = $lineIndex->count();
 
     $maxFiles = 5;
@@ -107,15 +113,15 @@ function pickScenarioBPoints(string $fixturePath): string
             ));
             break;
         }
-        [$packed, $state] = \Spatie\SourcemapsLookup\Internal\LineParser::parse(
+        [$packed, $state] = LineParser::parse(
             $mappings,
             $lineIndex->offset($lineIdx),
             $lineIndex->end($lineIdx),
             $state
         );
-        $segCount = intdiv(strlen($packed), \Spatie\SourcemapsLookup\Internal\Segment::SIZE);
+        $segCount = intdiv(strlen($packed), Segment::SIZE);
         for ($si = 0; $si < $segCount; $si++) {
-            $seg = \Spatie\SourcemapsLookup\Internal\Segment::fromPacked($packed, $si);
+            $seg = Segment::fromPacked($packed, $si);
             if (! $seg->isMapped()) {
                 continue;
             }
@@ -140,6 +146,7 @@ function pickScenarioBPoints(string $fixturePath): string
 
     $tmp = tempnam(sys_get_temp_dir(), 'bench-points-');
     file_put_contents($tmp, json_encode($points));
+
     return $tmp;
 }
 
@@ -152,7 +159,7 @@ function runSubprocess(string $scenario, string $adapterClass, string $fixture, 
     for ($i = 0; $i < $runs; $i++) {
         $extra = '';
         foreach ($extraArgs as $arg) {
-            $extra .= ' ' . escapeshellarg($arg);
+            $extra .= ' '.escapeshellarg($arg);
         }
         $cmd = sprintf(
             '%s %s %s %s%s',
@@ -191,6 +198,7 @@ function runSubprocess(string $scenario, string $adapterClass, string $fixture, 
                 proc_close($proc);
                 $elapsed = (hrtime(true) - $sampleStart) / 1e9;
                 fwrite(STDERR, sprintf("\n    sample %d/%d KILLED after %.1fs (timeout)\n", $i + 1, $runs, $elapsed));
+
                 return ['wall_ms' => null, 'peak_mb' => null, 'error' => sprintf('sample timeout after %ds', PER_SAMPLE_TIMEOUT_SEC)];
             }
             usleep(10_000); // 10ms
@@ -201,11 +209,12 @@ function runSubprocess(string $scenario, string $adapterClass, string $fixture, 
         $elapsed = (hrtime(true) - $sampleStart) / 1e9;
         if ($exit !== 0) {
             fwrite(STDERR, sprintf("\n    sample %d/%d FAILED exit=%d in %.1fs: %s\n", $i + 1, $runs, $exit, $elapsed, substr(trim($stderr), 0, 200)));
+
             return ['wall_ms' => null, 'peak_mb' => null, 'error' => trim($stderr) ?: "exit $exit"];
         }
         $result = json_decode($stdout, true);
         if (! is_array($result) || ! isset($result['wall_ns'], $result['peak_bytes'])) {
-            return ['wall_ms' => null, 'peak_mb' => null, 'error' => "bad output: " . substr($stdout, 0, 200)];
+            return ['wall_ms' => null, 'peak_mb' => null, 'error' => 'bad output: '.substr($stdout, 0, 200)];
         }
         // Dot per sample — visible progress within a 10-sample batch.
         fwrite(STDERR, '.');
@@ -214,6 +223,7 @@ function runSubprocess(string $scenario, string $adapterClass, string $fixture, 
     }
     sort($walls);
     sort($peaks);
+
     return [
         'wall_ms' => round($walls[(int) (count($walls) / 2)] / 1_000_000, 3),
         'peak_mb' => round($peaks[(int) (count($peaks) / 2)] / 1_048_576, 2),
@@ -263,6 +273,7 @@ function formatNum(mixed $val, ?string $error, bool $isErrorLiteral = false): st
     if ($error !== null || $val === null) {
         return '-';
     }
+
     return is_float($val) || is_int($val) ? number_format((float) $val, 2) : (string) $val;
 }
 
@@ -272,5 +283,6 @@ function deltaPct(?float $axy, ?float $ours, ?string $axyErr, ?string $oursErr):
         return '-';
     }
     $pct = (int) round((($ours - $axy) / $axy) * 100);
+
     return sprintf('%+d%%', $pct);
 }
