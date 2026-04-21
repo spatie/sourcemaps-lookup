@@ -126,6 +126,46 @@ class SourceMapLookup
     }
 
     /**
+     * Return a 1-based-line-keyed slice of an inlined source file.
+     *
+     * Line numbers are 1-based and inclusive. Out-of-range bounds are clamped:
+     * $fromLine below 1 becomes 1, $toLine past the last line becomes the last
+     * line. If the clamped range is empty (fromLine > toLine, or fromLine past
+     * the end of the file), returns an empty array.
+     *
+     * Returns null when the source file has no inlined content (either the
+     * fileIndex is out of range, or sourcesContent[$fileIndex] is null). This
+     * mirrors sourceContent()'s null semantics so callers can distinguish
+     * "no content available" from "empty range".
+     *
+     * @return array<int, string>|null
+     */
+    public function sourceLines(int $fileIndex, int $fromLine, int $toLine): ?array
+    {
+        $content = $this->sourceContent($fileIndex);
+        if ($content === null) {
+            return null;
+        }
+
+        $lines = explode("\n", $content);
+        $totalLines = count($lines);
+
+        $fromLine = max(1, $fromLine);
+        $toLine = min($totalLines, $toLine);
+
+        if ($fromLine > $toLine) {
+            return [];
+        }
+
+        $result = [];
+        for ($i = $fromLine; $i <= $toLine; $i++) {
+            $result[$i] = $lines[$i - 1];
+        }
+
+        return $result;
+    }
+
+    /**
      * Resolve a generated position (line, column) to its original source position.
      *
      * @param  int  $line  1-based line in the generated file.
