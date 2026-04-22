@@ -99,11 +99,27 @@ class WalkBack
                     if ($ch === '/' && $next === '*') {
                         $state = 'mlc';
                         $k += 2;
+
                         continue 2;
                     }
-                    if ($ch === '"') { $state = 'dq'; $k++; continue 2; }
-                    if ($ch === "'") { $state = 'sq'; $k++; continue 2; }
-                    if ($ch === '`') { $state = 'tpl'; $k++; continue 2; }
+                    if ($ch === '"') {
+                        $state = 'dq';
+                        $k++;
+
+                        continue 2;
+                    }
+                    if ($ch === "'") {
+                        $state = 'sq';
+                        $k++;
+
+                        continue 2;
+                    }
+                    if ($ch === '`') {
+                        $state = 'tpl';
+                        $k++;
+
+                        continue 2;
+                    }
                     if ($ch === '{') {
                         $opens++;
                         if ($firstOpenPos === null) {
@@ -113,6 +129,7 @@ class WalkBack
                             $templateBraceStack[count($templateBraceStack) - 1]++;
                         }
                         $k++;
+
                         continue 2;
                     }
                     if ($ch === '}') {
@@ -129,6 +146,7 @@ class WalkBack
                             $closes++;
                         }
                         $k++;
+
                         continue 2;
                     }
                     $k++;
@@ -138,30 +156,59 @@ class WalkBack
                     if ($ch === '*' && $next === '/') {
                         $state = 'code';
                         $k += 2;
+
                         continue 2;
                     }
                     $k++;
                     break;
 
                 case 'dq':
-                    if ($ch === '\\') { $k += 2; continue 2; }
-                    if ($ch === '"') { $state = 'code'; $k++; continue 2; }
+                    if ($ch === '\\') {
+                        $k += 2;
+
+                        continue 2;
+                    }
+                    if ($ch === '"') {
+                        $state = 'code';
+                        $k++;
+
+                        continue 2;
+                    }
                     $k++;
                     break;
 
                 case 'sq':
-                    if ($ch === '\\') { $k += 2; continue 2; }
-                    if ($ch === "'") { $state = 'code'; $k++; continue 2; }
+                    if ($ch === '\\') {
+                        $k += 2;
+
+                        continue 2;
+                    }
+                    if ($ch === "'") {
+                        $state = 'code';
+                        $k++;
+
+                        continue 2;
+                    }
                     $k++;
                     break;
 
                 case 'tpl':
-                    if ($ch === '\\') { $k += 2; continue 2; }
-                    if ($ch === '`') { $state = 'code'; $k++; continue 2; }
+                    if ($ch === '\\') {
+                        $k += 2;
+
+                        continue 2;
+                    }
+                    if ($ch === '`') {
+                        $state = 'code';
+                        $k++;
+
+                        continue 2;
+                    }
                     if ($ch === '$' && $next === '{') {
                         $state = 'code';
                         $templateBraceStack[] = 0;
                         $k += 2;
+
                         continue 2;
                     }
                     $k++;

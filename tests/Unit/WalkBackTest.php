@@ -246,7 +246,7 @@ JS;
 });
 
 it('accepts a line at the very start of the file', function () {
-    $source = "throw new Error();";
+    $source = 'throw new Error();';
     expect(WalkBack::find(wbLines($source), 1, 60))->toBe([]);
 });
 
