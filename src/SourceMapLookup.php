@@ -8,9 +8,17 @@ use Spatie\SourcemapsLookup\Exceptions\UnsupportedSourceMap;
 use Spatie\SourcemapsLookup\Internal\LineIndex;
 use Spatie\SourcemapsLookup\Internal\LineParser;
 use Spatie\SourcemapsLookup\Internal\Segment;
+use Spatie\SourcemapsLookup\Internal\WalkBack;
+use Spatie\SourcemapsLookup\Scopes\Scope;
 
 class SourceMapLookup
 {
+    /**
+     * Default upper bound on how far scopeAt() will walk back through
+     * `sourcesContent` to find the enclosing function. Overridable per-call.
+     */
+    public const DEFAULT_WALKBACK_LINES = 60;
+
     private string $mappings;
 
     private LineIndex $lineIndex;
@@ -26,6 +34,9 @@ class SourceMapLookup
 
     private string $sourceRoot;
 
+    /** @var array<int, true> Source indices flagged as third-party by `ignoreList`. */
+    private array $ignoredIndices = [];
+
     /** @var array<int, string> Packed-binary segment buffers (20 bytes/segment). */
     private array $segmentCache = [];
 
@@ -39,6 +50,24 @@ class SourceMapLookup
      * @var array<int, array<string, GeneratedPosition>>|null
      */
     private ?array $reverseIndex = null;
+
+    /**
+     * Lazy per-file split of `sourcesContent` into lines, used by scopeAt().
+     * A `null` entry means the source has no inlined content.
+     *
+     * @var array<int, list<string>|null>
+     */
+    private array $splitLines = [];
+
+    /**
+     * Walk-back chain cache keyed by "fileIndex,sourceLine,maxLinesBack".
+     * Stores the raw WalkBack::find() result so the Scope objects wrapping
+     * it stay query-specific (their innermost Position carries the queried
+     * column).
+     *
+     * @var array<string, list<array{name: ?string, line: int, column: int}>>
+     */
+    private array $scopeChainCache = [];
 
     private function __construct(array $data)
     {
@@ -74,6 +103,21 @@ class SourceMapLookup
             }
             if (count($data['sourcesContent']) !== count($data['sources'])) {
                 throw new InvalidSourceMap('sourcesContent length must match sources length');
+            }
+        }
+        if (array_key_exists('ignoreList', $data) && $data['ignoreList'] !== null) {
+            if (! is_array($data['ignoreList']) || ! array_is_list($data['ignoreList'])) {
+                throw new InvalidSourceMap('ignoreList must be a list (0-indexed array)');
+            }
+            $sourceCount = count($data['sources']);
+            foreach ($data['ignoreList'] as $index) {
+                if (! is_int($index)) {
+                    throw new InvalidSourceMap('ignoreList entries must be integers');
+                }
+                if ($index < 0 || $index >= $sourceCount) {
+                    throw new InvalidSourceMap("ignoreList index $index is out of range (0..".($sourceCount - 1).')');
+                }
+                $this->ignoredIndices[$index] = true;
             }
         }
 
@@ -123,6 +167,31 @@ class SourceMapLookup
     public function sourceContent(int $fileIndex): ?string
     {
         return $this->sourcesContent[$fileIndex] ?? null;
+    }
+
+    /**
+     * Reports whether a source is marked as third-party via the `ignoreList`
+     * field (ECMA-426). Accepts either the raw entry from `sources[]` or its
+     * `sourceRoot`-resolved form (i.e. what `Position::$sourceFileName`
+     * exposes), whichever the caller has available. Unknown names return
+     * `false`.
+     */
+    public function isIgnored(string $source): bool
+    {
+        if ($this->ignoredIndices === []) {
+            return false;
+        }
+
+        foreach ($this->sources as $index => $raw) {
+            if ($raw === null) {
+                continue;
+            }
+            if ($raw === $source || $this->resolveFileName($index) === $source) {
+                return isset($this->ignoredIndices[$index]);
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -204,6 +273,81 @@ class SourceMapLookup
             sourceFileIndex: $best->sourceIndex,
             name: $best->nameIndex !== null ? ($this->names[$best->nameIndex] ?? null) : null,
         );
+    }
+
+    /**
+     * Resolve a generated position to the enclosing source-language scope.
+     *
+     * Modeled after the consumer semantics of the ECMA-426 Scopes proposal:
+     * "given a generated position, tell me the innermost source-language scope
+     * and its enclosing chain." Because no bundler currently emits the
+     * `scopes` field, the implementation is a heuristic polyfill that walks
+     * `sourcesContent` backward looking for enclosing function declarations.
+     *
+     * Returns:
+     *   - a `Scope` with `$parent` set to any lexically enclosing scopes;
+     *   - a single-level `Scope` when only the mapping's `name` is available
+     *     (no inlined `sourcesContent` on which to walk);
+     *   - `null` when the generated position resolves to nothing.
+     *
+     * For anonymous function boundaries (e.g. `arr.map(() => { … })`), the
+     * `Scope::$name` is `null` but a Scope is still returned, signalling
+     * "yes, this is a function boundary whose binding we couldn't recover."
+     */
+    public function scopeAt(int $line, int $column, int $maxLinesBack = self::DEFAULT_WALKBACK_LINES): ?Scope
+    {
+        $position = $this->lookup($line, $column);
+        if ($position === null) {
+            return null;
+        }
+
+        $cacheKey = $position->sourceFileIndex.','.$position->sourceLine.','.$maxLinesBack;
+        if (! array_key_exists($cacheKey, $this->scopeChainCache)) {
+            $lines = $this->splitLinesFor($position->sourceFileIndex);
+            $this->scopeChainCache[$cacheKey] = $lines === null
+                ? []
+                : WalkBack::find($lines, $position->sourceLine, $maxLinesBack);
+        }
+
+        $chain = $this->scopeChainCache[$cacheKey];
+
+        if ($chain === []) {
+            return $position->name !== null
+                ? new Scope($position->name, $position, null)
+                : null;
+        }
+
+        // Build the Scope chain outer-to-inner. The innermost entry carries the
+        // queried $position verbatim; outer entries get a Position constructed
+        // from the declaration line WalkBack recorded.
+        $scope = null;
+        for ($i = count($chain) - 1; $i >= 0; $i--) {
+            $entry = $chain[$i];
+            $scopePosition = $i === 0
+                ? $position
+                : new Position(
+                    sourceLine: $entry['line'],
+                    sourceColumn: $entry['column'],
+                    sourceFileName: $position->sourceFileName,
+                    sourceFileIndex: $position->sourceFileIndex,
+                    name: null,
+                );
+            $scope = new Scope($entry['name'], $scopePosition, $scope);
+        }
+
+        return $scope;
+    }
+
+    /** @return list<string>|null lines of sourcesContent for $fileIndex, cached lazily. */
+    private function splitLinesFor(int $fileIndex): ?array
+    {
+        if (array_key_exists($fileIndex, $this->splitLines)) {
+            return $this->splitLines[$fileIndex];
+        }
+
+        $content = $this->sourceContent($fileIndex);
+
+        return $this->splitLines[$fileIndex] = $content === null ? null : explode("\n", $content);
     }
 
     /**
