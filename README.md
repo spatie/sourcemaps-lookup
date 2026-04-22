@@ -4,18 +4,23 @@
 [![Tests](https://img.shields.io/github/actions/workflow/status/spatie/sourcemaps-lookup/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/spatie/sourcemaps-lookup/actions/workflows/run-tests.yml)
 [![Total Downloads](https://img.shields.io/packagist/dt/spatie/sourcemaps-lookup.svg?style=flat-square)](https://packagist.org/packages/spatie/sourcemaps-lookup)
 
-`spatie/sourcemaps-lookup` resolves JavaScript stack-frame positions against a [Source Map v3](https://tc39.es/ecma426/) file and returns the original source file, line, column, and symbol name. It is tuned for stack-frame resolution (e.g. symbolicating JavaScript errors from an uploaded source map) and is narrowly focused on the read path: no writing, merging, or transforming of maps.
+`spatie/sourcemaps-lookup` resolves JavaScript stack-frame positions against a [Source Map v3](https://tc39.es/ecma426/) file and returns the original source file, line, column, symbol name, and enclosing scope. It is tuned for stack-frame resolution (e.g. symbolicating JavaScript errors from an uploaded source map) and is narrowly focused on the read path: no writing, merging, or transforming of maps.
 
 ```php
 use Spatie\SourcemapsLookup\SourceMapLookup;
 
 $map = SourceMapLookup::fromFile('bundle.js.map');
-$position = $map->lookup(42, 17);
 
-echo $position->sourceFileName;  // "src/app.ts"
+// Resolve a generated position to its original source location.
+$position = $map->lookup(42, 17);
+echo $position->sourceFileName;  // "src/app.tsx"
 echo $position->sourceLine;      // 1-based
 echo $position->sourceColumn;    // 0-based
-echo $position->name;            // symbol name or null
+
+// Resolve the enclosing source-language scope (see "Resolving the enclosing scope" below).
+$scope = $map->scopeAt(42, 17);
+echo $scope->name;               // "onClick"
+echo $scope->parent?->name;      // "DeeplyNestedTrigger"
 ```
 
 Resolving 20 stack frames against a 6 MB production source map takes around 3.8 ms and uses about 18 MiB of memory on an Apple M1 Pro. See [Benchmarks](#benchmarks) for the full picture.
@@ -170,6 +175,19 @@ A per-call `$maxLinesBack` argument bounds how far back the walker looks (defaul
 $scope = $map->scopeAt(42, 17, maxLinesBack: 200);
 ```
 
+#### The `Scope` object
+
+```php
+readonly class Scope
+{
+    public ?string $name;      // identifier of the enclosing scope, or null for an anonymous function boundary
+    public Position $position; // innermost: the queried position; outer: the declaration line
+    public ?Scope $parent;     // lexically enclosing scope, or null at the top level
+}
+```
+
+Walk `$parent` outward to display the enclosing chain. For anonymous callbacks like `arr.map(() => { … })`, `$name` is `null` but the `Scope` is still returned — the function boundary is real, the binding name just isn't recoverable from source.
+
 ### Marking third-party sources
 
 Source Map v3 maps can carry an `ignoreList` of source-array indices that debuggers should step over. `isIgnored()` exposes that normative field:
@@ -275,6 +293,8 @@ Once a line has been looked up, its parsed segments are cached on the `SourceMap
 - `sourceRoot` prefixing.
 - `null` entries in the `sources` array (returned as `sourceFileName === null`).
 - Inlined `sourcesContent`.
+- `ignoreList` for third-party sources (exposed via `isIgnored()`).
+- Enclosing-scope resolution via `scopeAt()` — heuristic polyfill today; natively backed by the [ECMA-426 Scopes proposal](https://github.com/tc39/source-map/blob/main/proposals/scopes.md) when bundlers begin emitting it.
 
 **Not supported** (by design):
 
