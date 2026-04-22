@@ -34,8 +34,19 @@ class SourceMapLookup
 
     private string $sourceRoot;
 
+    /** Precomputed `$sourceRoot` with a trailing `/`; empty string when no sourceRoot. */
+    private string $sourceRootPrefix;
+
     /** @var array<int, true> Source indices flagged as third-party by `ignoreList`. */
     private array $ignoredIndices = [];
+
+    /**
+     * Lazy name→true map built on the first `isIgnored()` call. Covers both
+     * raw `sources[]` entries and their `sourceRoot`-resolved forms.
+     *
+     * @var array<string, true>|null
+     */
+    private ?array $ignoredNames = null;
 
     /** @var array<int, string> Packed-binary segment buffers (20 bytes/segment). */
     private array $segmentCache = [];
@@ -126,6 +137,9 @@ class SourceMapLookup
         $this->names = $data['names'] ?? [];
         $this->sourcesContent = $data['sourcesContent'] ?? [];
         $this->sourceRoot = (string) ($data['sourceRoot'] ?? '');
+        $this->sourceRootPrefix = $this->sourceRoot === '' || str_ends_with($this->sourceRoot, '/')
+            ? $this->sourceRoot
+            : $this->sourceRoot.'/';
         $this->lineIndex = new LineIndex($this->mappings);
         $this->stateCache[-1] = [0, 0, 0, 0];
     }
@@ -182,16 +196,22 @@ class SourceMapLookup
             return false;
         }
 
-        foreach ($this->sources as $index => $raw) {
-            if ($raw === null) {
-                continue;
-            }
-            if ($raw === $source || $this->resolveFileName($index) === $source) {
-                return isset($this->ignoredIndices[$index]);
+        if ($this->ignoredNames === null) {
+            $this->ignoredNames = [];
+            foreach ($this->ignoredIndices as $index => $_) {
+                $raw = $this->sources[$index] ?? null;
+                if ($raw === null) {
+                    continue;
+                }
+                $this->ignoredNames[$raw] = true;
+                $resolved = $this->resolveFileName($index);
+                if ($resolved !== null) {
+                    $this->ignoredNames[$resolved] = true;
+                }
             }
         }
 
-        return false;
+        return isset($this->ignoredNames[$source]);
     }
 
     /**
@@ -211,16 +231,13 @@ class SourceMapLookup
      */
     public function sourceLines(int $fileIndex, int $fromLine, int $toLine): ?array
     {
-        $content = $this->sourceContent($fileIndex);
-        if ($content === null) {
+        $lines = $this->splitLinesFor($fileIndex);
+        if ($lines === null) {
             return null;
         }
 
-        $lines = explode("\n", $content);
-        $totalLines = count($lines);
-
         $fromLine = max(1, $fromLine);
-        $toLine = min($totalLines, $toLine);
+        $toLine = min(count($lines), $toLine);
 
         if ($fromLine > $toLine) {
             return [];
@@ -458,13 +475,10 @@ class SourceMapLookup
     private function resolveFileName(int $sourceIndex): ?string
     {
         $name = $this->sources[$sourceIndex] ?? null;
-        if ($name === null || $this->sourceRoot === '') {
+        if ($name === null || $this->sourceRootPrefix === '') {
             return $name;
         }
-        $prefix = str_ends_with($this->sourceRoot, '/')
-            ? $this->sourceRoot
-            : $this->sourceRoot.'/';
 
-        return $prefix.$name;
+        return $this->sourceRootPrefix.$name;
     }
 }

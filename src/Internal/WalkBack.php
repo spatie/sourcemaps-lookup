@@ -33,6 +33,13 @@ class WalkBack
     // Anonymous function boundary: `=> {` or `function ( … ) {`
     private const ANON_RE = '/(?:=>\s*\{|\bfunction\s*\*?\s*\([^)]*\)\s*\{)/';
 
+    // States for the per-line brace scanner.
+    private const STATE_CODE = 0;
+    private const STATE_MLC = 1;   // `/* ... */`
+    private const STATE_DQ = 2;    // "..."
+    private const STATE_SQ = 3;    // '...'
+    private const STATE_TPL = 4;   // `...`
+
     /**
      * Walk backward from `$sourceLine` looking for enclosing function-like
      * scopes. Returns the chain innermost-first.
@@ -83,7 +90,7 @@ class WalkBack
         $closes = 0;
         $firstOpenPos = null;
         $len = strlen($line);
-        $state = 'code'; // code | slc | mlc | dq | sq | tpl
+        $state = self::STATE_CODE;
         $templateBraceStack = []; // depth of nested {} inside the current ${ … }
 
         $k = 0;
@@ -92,30 +99,30 @@ class WalkBack
             $next = $k + 1 < $len ? $line[$k + 1] : '';
 
             switch ($state) {
-                case 'code':
+                case self::STATE_CODE:
                     if ($ch === '/' && $next === '/') {
-                        return [$opens, $closes, $firstOpenPos]; // rest of line is a comment
+                        return [$opens, $closes, $firstOpenPos];
                     }
                     if ($ch === '/' && $next === '*') {
-                        $state = 'mlc';
+                        $state = self::STATE_MLC;
                         $k += 2;
 
                         continue 2;
                     }
                     if ($ch === '"') {
-                        $state = 'dq';
+                        $state = self::STATE_DQ;
                         $k++;
 
                         continue 2;
                     }
                     if ($ch === "'") {
-                        $state = 'sq';
+                        $state = self::STATE_SQ;
                         $k++;
 
                         continue 2;
                     }
                     if ($ch === '`') {
-                        $state = 'tpl';
+                        $state = self::STATE_TPL;
                         $k++;
 
                         continue 2;
@@ -140,7 +147,7 @@ class WalkBack
                                 $closes++;
                             } else {
                                 array_pop($templateBraceStack);
-                                $state = 'tpl';
+                                $state = self::STATE_TPL;
                             }
                         } else {
                             $closes++;
@@ -152,9 +159,9 @@ class WalkBack
                     $k++;
                     break;
 
-                case 'mlc':
+                case self::STATE_MLC:
                     if ($ch === '*' && $next === '/') {
-                        $state = 'code';
+                        $state = self::STATE_CODE;
                         $k += 2;
 
                         continue 2;
@@ -162,14 +169,14 @@ class WalkBack
                     $k++;
                     break;
 
-                case 'dq':
+                case self::STATE_DQ:
                     if ($ch === '\\') {
                         $k += 2;
 
                         continue 2;
                     }
                     if ($ch === '"') {
-                        $state = 'code';
+                        $state = self::STATE_CODE;
                         $k++;
 
                         continue 2;
@@ -177,14 +184,14 @@ class WalkBack
                     $k++;
                     break;
 
-                case 'sq':
+                case self::STATE_SQ:
                     if ($ch === '\\') {
                         $k += 2;
 
                         continue 2;
                     }
                     if ($ch === "'") {
-                        $state = 'code';
+                        $state = self::STATE_CODE;
                         $k++;
 
                         continue 2;
@@ -192,20 +199,20 @@ class WalkBack
                     $k++;
                     break;
 
-                case 'tpl':
+                case self::STATE_TPL:
                     if ($ch === '\\') {
                         $k += 2;
 
                         continue 2;
                     }
                     if ($ch === '`') {
-                        $state = 'code';
+                        $state = self::STATE_CODE;
                         $k++;
 
                         continue 2;
                     }
                     if ($ch === '$' && $next === '{') {
-                        $state = 'code';
+                        $state = self::STATE_CODE;
                         $templateBraceStack[] = 0;
                         $k += 2;
 
