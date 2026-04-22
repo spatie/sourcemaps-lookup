@@ -35,9 +35,13 @@ class WalkBack
 
     // States for the per-line brace scanner.
     private const STATE_CODE = 0;
+
     private const STATE_MLC = 1;   // `/* ... */`
+
     private const STATE_DQ = 2;    // "..."
+
     private const STATE_SQ = 3;    // '...'
+
     private const STATE_TPL = 4;   // `...`
 
     /**
