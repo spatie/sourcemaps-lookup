@@ -2,7 +2,7 @@
 
 namespace Spatie\SourcemapsLookup;
 
-class Position
+readonly class Position
 {
     public function __construct(
         public int $sourceLine,
