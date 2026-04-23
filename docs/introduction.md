@@ -3,7 +3,7 @@ title: Introduction
 weight: 1
 ---
 
-`spatie/sourcemaps-lookup` resolves JavaScript stack frame positions against a [Source Map v3](https://tc39.es/ecma426/) file. It returns the original source file, line, column, symbol name, and enclosing scope. The package is tuned for stack frame resolution (for example, symbolicating JavaScript errors using an uploaded source map), and is narrowly focused on the read path. It does not write, merge, or transform maps.
+This package resolves JavaScript stack frame positions against a [Source Map v3](https://tc39.es/ecma426/) file. It returns the original source file, line, column, symbol name, and enclosing scope. It is tuned for stack frame resolution (for example, symbolicating JavaScript errors using an uploaded source map), and is narrowly focused on the read path. It does not write, merge, or transform maps.
 
 ```php
 use Spatie\SourcemapsLookup\SourceMapLookup;
