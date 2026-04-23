@@ -1,5 +1,5 @@
 ---
-title: How it works
+title: Under the hood
 weight: 7
 ---
 

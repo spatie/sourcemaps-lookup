@@ -1,6 +1,6 @@
 ---
 title: Reading inlined source content
-weight: 3
+weight: 2
 ---
 
 If the map has a `sourcesContent` array, you can retrieve the original file body by index.

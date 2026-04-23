@@ -1,6 +1,6 @@
 ---
 title: Error handling
-weight: 4
+weight: 3
 ---
 
 Two exception classes are available, both in `Spatie\SourcemapsLookup\Exceptions`.

@@ -1,6 +1,6 @@
 ---
 title: Complete example
-weight: 5
+weight: 4
 ---
 
 Here's an end to end example that resolves a single stack frame and prints the surrounding code.
