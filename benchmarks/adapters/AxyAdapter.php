@@ -8,7 +8,7 @@ use axy\sourcemap\PosGenerated;
 use axy\sourcemap\PosMap;
 use axy\sourcemap\SourceMap;
 
-final class AxyAdapter
+class AxyAdapter
 {
     private SourceMap $map;
 

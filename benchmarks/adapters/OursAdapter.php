@@ -6,7 +6,7 @@ namespace Spatie\SourcemapsLookup\Benchmarks\Adapters;
 
 use Spatie\SourcemapsLookup\SourceMapLookup;
 
-final class OursAdapter
+class OursAdapter
 {
     private SourceMapLookup $map;
 
