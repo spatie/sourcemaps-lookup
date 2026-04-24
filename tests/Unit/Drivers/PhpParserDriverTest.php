@@ -81,3 +81,44 @@ it('caches parsed lines across repeat lookups', function () {
     expect($second->sourceLine)->toBe($first->sourceLine);
     expect($second->sourceColumn)->toBe($first->sourceColumn);
 });
+
+it('segmentsForLine skips unmapped (1-field) segments', function () {
+    // "AAAA" = mapped at gen col 0; "K" = 1-field unmapped at gen col 5.
+    $d = new PhpParserDriver();
+    $d->load('AAAA,K', sourceCount: 1, nameCount: 0);
+
+    $segs = iterator_to_array($d->segmentsForLine(0), preserve_keys: false);
+
+    expect($segs)->toHaveCount(1);
+    expect($segs[0]->generatedColumn)->toBe(0);
+});
+
+it('lookup binary-searches for the nearest-preceding segment', function () {
+    // Three segments at absolute gen cols 0, 3, 6.
+    $d = new PhpParserDriver();
+    $d->load('AAAA,GAAA,GAAA', sourceCount: 1, nameCount: 0);
+
+    expect($d->lookup(0, 2)->generatedColumn)->toBe(0);  // before col 3 → first segment
+    expect($d->lookup(0, 4)->generatedColumn)->toBe(3);  // between 3 and 6 → middle segment
+    expect($d->lookup(0, 7)->generatedColumn)->toBe(6);  // after col 6 → last segment
+});
+
+it('walks forward through uncached lines when queried line skips ahead', function () {
+    // 6 lines, all mapping to source 0, source line 0, column 0.
+    $d = new PhpParserDriver();
+    $d->load('AAAA;AAAA;AAAA;AAAA;AAAA;AAAA', sourceCount: 1, nameCount: 0);
+
+    // First lookup on line 5 — forces walkforward from the prelude state.
+    $seg = $d->lookup(5, 0);
+
+    expect($seg)->not->toBeNull();
+    expect($seg->sourceIndex)->toBe(0);
+});
+
+it('throws InvalidSourceMap on out-of-range nameIndex', function () {
+    // "AAAAA" = 5-field segment with nameIndex=0; nameCount=0 is out of range.
+    $d = new PhpParserDriver();
+    $d->load('AAAAA', sourceCount: 1, nameCount: 0);
+
+    $d->lookup(line: 0, column: 0);
+})->throws(InvalidSourceMap::class);
