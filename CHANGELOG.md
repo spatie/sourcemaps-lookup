@@ -10,3 +10,12 @@ All notable changes to `spatie/sourcemaps-lookup` will be documented in this fil
 - `Spatie\SourcemapsLookup\Scopes\Scope` value object returned by `scopeAt()`, exposing `$name`, `$position`, and the lexically enclosing `$parent`.
 - `SourceMapLookup::isIgnored()` for the normative `ignoreList` field on Source Map v3 maps.
 - `Position` and `GeneratedPosition` are now class-level `readonly`.
+- `Spatie\SourcemapsLookup\Drivers\SourceMapParserDriver` interface for pluggable parser backends.
+- `Spatie\SourcemapsLookup\Drivers\PhpParserDriver` default backend (current parser machinery, relocated).
+- `Spatie\SourcemapsLookup\Drivers\RawSegment` DTO exposed by driver primitives.
+- `Spatie\SourcemapsLookup\Exceptions\DriverUnavailable` thrown by drivers that cannot initialise.
+- Optional `?SourceMapParserDriver $driver` parameter on `SourceMapLookup::fromFile()`, `fromJson()`, `fromArray()`. Auto-detects `spatie/sourcemaps-lookup-rust` if installed.
+
+### Changed
+
+- Internal parser state moved out of `SourceMapLookup` into `PhpParserDriver`. No behavior change for users.
