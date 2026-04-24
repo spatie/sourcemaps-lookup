@@ -6,7 +6,6 @@ use JsonException;
 use Spatie\SourcemapsLookup\Drivers\PhpParserDriver;
 use Spatie\SourcemapsLookup\Drivers\RawSegment;
 use Spatie\SourcemapsLookup\Drivers\SourceMapParserDriver;
-use Spatie\SourcemapsLookup\Exceptions\DriverUnavailable;
 use Spatie\SourcemapsLookup\Exceptions\InvalidSourceMap;
 use Spatie\SourcemapsLookup\Exceptions\UnsupportedSourceMap;
 use Spatie\SourcemapsLookup\Internal\WalkBack;
@@ -14,6 +13,10 @@ use Spatie\SourcemapsLookup\Scopes\Scope;
 
 class SourceMapLookup
 {
+    /**
+     * Default upper bound on how far scopeAt() will walk back through
+     * `sourcesContent` to find the enclosing function. Overridable per-call.
+     */
     public const DEFAULT_WALKBACK_LINES = 60;
 
     private SourceMapParserDriver $driver;
@@ -138,7 +141,12 @@ class SourceMapLookup
     /**
      * Zero-config driver pick. If the Rust subpackage is installed and
      * the FFI .dylib loads, use Rust. Otherwise fall back to PHP.
-     * Never throws DriverUnavailable — that is only for explicit requests.
+     *
+     * Never propagates errors to the caller: any Throwable raised while
+     * constructing the Rust driver falls back to the PHP driver. The
+     * "never throws" contract is intentional; explicit driver requests
+     * (by passing an instance to fromFile/fromJson/fromArray) get strict
+     * error propagation instead.
      */
     private static function autoPickDriver(): SourceMapParserDriver
     {
@@ -149,9 +157,10 @@ class SourceMapLookup
             && $rustClass::isAvailable()) {
             try {
                 return new $rustClass();
-            } catch (DriverUnavailable) {
-                // Binary load or probe failed after isAvailable() lied.
-                // Fall through to PHP driver.
+            } catch (\Throwable) {
+                // Binary load, FFI init, or probe failed after isAvailable() lied.
+                // Fall through to PHP driver. Explicit callers get strict errors;
+                // auto-detect is best-effort by design.
             }
         }
 
@@ -169,6 +178,13 @@ class SourceMapLookup
         return $this->sourcesContent[$fileIndex] ?? null;
     }
 
+    /**
+     * Reports whether a source is marked as third-party via the `ignoreList`
+     * field (ECMA-426). Accepts either the raw entry from `sources[]` or its
+     * `sourceRoot`-resolved form (i.e. what `Position::$sourceFileName`
+     * exposes), whichever the caller has available. Unknown names return
+     * `false`.
+     */
     public function isIgnored(string $source): bool
     {
         if ($this->ignoredIndices === []) {
@@ -192,7 +208,21 @@ class SourceMapLookup
         return isset($this->ignoredNames[$source]);
     }
 
-    /** @return array<int, string>|null */
+    /**
+     * Return a 1-based-line-keyed slice of an inlined source file.
+     *
+     * Line numbers are 1-based and inclusive. Out-of-range bounds are clamped:
+     * $fromLine below 1 becomes 1, $toLine past the last line becomes the last
+     * line. If the clamped range is empty (fromLine > toLine, or fromLine past
+     * the end of the file), returns an empty array.
+     *
+     * Returns null when the source file has no inlined content (either the
+     * fileIndex is out of range, or sourcesContent[$fileIndex] is null). This
+     * mirrors sourceContent()'s null semantics so callers can distinguish
+     * "no content available" from "empty range".
+     *
+     * @return array<int, string>|null
+     */
     public function sourceLines(int $fileIndex, int $fromLine, int $toLine): ?array
     {
         $lines = $this->splitLinesFor($fileIndex);
@@ -212,6 +242,21 @@ class SourceMapLookup
         return $result;
     }
 
+    /**
+     * Resolve a generated position (line, column) to its original source position.
+     *
+     * @param  int  $line  1-based line in the generated file.
+     * @param  int  $column  0-based column in the generated file.
+     * @return Position|null Returns null in two distinct cases (treated the same):
+     *                       - the nearest-preceding segment for that position is a 1-field "unmapped"
+     *                       segment (bundler-inserted code with no source origin);
+     *                       - no segment covers the queried position (blank line, column before the
+     *                       first segment, or line beyond the map).
+     *
+     * Throws InvalidSourceMap only if the map itself is malformed (bad mappings
+     * encoding or out-of-range source/name index). A successful-but-empty lookup
+     * is never an exception.
+     */
     public function lookup(int $line, int $column): ?Position
     {
         $raw = $this->driver->lookup($line - 1, $column);
@@ -219,6 +264,25 @@ class SourceMapLookup
         return $raw === null ? null : $this->wrap($raw);
     }
 
+    /**
+     * Resolve a generated position to the enclosing source-language scope.
+     *
+     * Modeled after the consumer semantics of the ECMA-426 Scopes proposal:
+     * "given a generated position, tell me the innermost source-language scope
+     * and its enclosing chain." Because no bundler currently emits the
+     * `scopes` field, the implementation is a heuristic polyfill that walks
+     * `sourcesContent` backward looking for enclosing function declarations.
+     *
+     * Returns:
+     *   - a `Scope` with `$parent` set to any lexically enclosing scopes;
+     *   - a single-level `Scope` when only the mapping's `name` is available
+     *     (no inlined `sourcesContent` on which to walk);
+     *   - `null` when the generated position resolves to nothing.
+     *
+     * For anonymous function boundaries (e.g. `arr.map(() => { … })`), the
+     * `Scope::$name` is `null` but a Scope is still returned, signalling
+     * "yes, this is a function boundary whose binding we couldn't recover."
+     */
     public function scopeAt(int $line, int $column, int $maxLinesBack = self::DEFAULT_WALKBACK_LINES): ?Scope
     {
         $position = $this->lookup($line, $column);
@@ -259,6 +323,19 @@ class SourceMapLookup
         return $scope;
     }
 
+    /**
+     * Reverse lookup: given a position in an original source file, return the
+     * generated (line, column) it maps to. Exact match only, no nearest-preceding
+     * fallback. Useful for editor tooling and coverage mapping, not for stack
+     * traces (use lookup() for those).
+     *
+     * Builds a full reverse index on first call (parses every line), so the cost
+     * is paid once. Callers that only use lookup() never pay this cost.
+     *
+     * @param  int  $fileIndex  Index into the map's sources array.
+     * @param  int  $sourceLine  1-based line in the original source file.
+     * @param  int  $sourceColumn  0-based column in the original source file.
+     */
     public function findGenerated(int $fileIndex, int $sourceLine, int $sourceColumn): ?GeneratedPosition
     {
         $this->reverseIndex ??= $this->buildReverseIndex();
