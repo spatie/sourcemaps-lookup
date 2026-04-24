@@ -3,6 +3,7 @@
 declare(strict_types=1);
 use Spatie\SourcemapsLookup\Benchmarks\Adapters\AxyAdapter;
 use Spatie\SourcemapsLookup\Benchmarks\Adapters\OursAdapter;
+use Spatie\SourcemapsLookup\Benchmarks\Adapters\RustAdapter;
 use Spatie\SourcemapsLookup\Internal\LineIndex;
 use Spatie\SourcemapsLookup\Internal\LineParser;
 use Spatie\SourcemapsLookup\Internal\Segment;
@@ -15,6 +16,7 @@ const PER_SAMPLE_TIMEOUT_SEC = 30;
 $adapters = [
     'axy' => AxyAdapter::class,
     'ours' => OursAdapter::class,
+    'rust' => RustAdapter::class,
 ];
 
 $fixtures = [
@@ -233,34 +235,46 @@ function runSubprocess(string $scenario, string $adapterClass, string $fixture, 
 
 function printTable(array $rows): void
 {
+    $fmt = "%-8s %-3s %12s %12s %12s %7s %7s %13s %13s %13s %7s %7s\n";
     printf(
-        "%-8s %-3s %13s %13s %7s %14s %14s %7s\n",
-        'fixture', 'sc', 'axy(wall ms)', 'ours(wall ms)', 'Δwall',
-        'axy(peak MiB)', 'ours(peak MiB)', 'Δpeak'
+        $fmt,
+        'fixture', 'sc',
+        'axy(wall)', 'ours(wall)', 'rust(wall)', 'Δours', 'Δrust',
+        'axy(peak)', 'ours(peak)', 'rust(peak)', 'Δours', 'Δrust'
     );
-    printf("%s\n", str_repeat('-', 88));
+    printf("%s\n", str_repeat('-', 123));
     foreach ($rows as $r) {
         $axy = $r['axy'];
         $ours = $r['ours'];
+        $rust = $r['rust'];
 
         $axyWall = $axy['wall_ms'];
         $oursWall = $ours['error'] !== null ? 'ERROR' : ($ours['wall_ms'] ?? '-');
+        $rustWall = $rust['error'] !== null ? 'ERROR' : ($rust['wall_ms'] ?? '-');
         $axyPeak = $axy['peak_mb'];
         $oursPeak = $ours['error'] !== null ? 'ERROR' : ($ours['peak_mb'] ?? '-');
+        $rustPeak = $rust['error'] !== null ? 'ERROR' : ($rust['peak_mb'] ?? '-');
 
-        $dWall = deltaPct($axy['wall_ms'], $ours['wall_ms'], $axy['error'], $ours['error']);
-        $dPeak = deltaPct($axy['peak_mb'], $ours['peak_mb'], $axy['error'], $ours['error']);
+        // ours/rust both compared to axy baseline (matches existing convention).
+        $dOursWall = deltaPct($axy['wall_ms'], $ours['wall_ms'], $axy['error'], $ours['error']);
+        $dRustWall = deltaPct($axy['wall_ms'], $rust['wall_ms'], $axy['error'], $rust['error']);
+        $dOursPeak = deltaPct($axy['peak_mb'], $ours['peak_mb'], $axy['error'], $ours['error']);
+        $dRustPeak = deltaPct($axy['peak_mb'], $rust['peak_mb'], $axy['error'], $rust['error']);
 
         printf(
-            "%-8s %-3s %13s %13s %7s %14s %14s %7s\n",
+            $fmt,
             $r['fixture'],
             $r['scenario'],
             formatNum($axyWall, $axy['error']),
             formatNum($oursWall, $ours['error'], $ours['error'] !== null),
-            $dWall,
+            formatNum($rustWall, $rust['error'], $rust['error'] !== null),
+            $dOursWall,
+            $dRustWall,
             formatNum($axyPeak, $axy['error']),
             formatNum($oursPeak, $ours['error'], $ours['error'] !== null),
-            $dPeak
+            formatNum($rustPeak, $rust['error'], $rust['error'] !== null),
+            $dOursPeak,
+            $dRustPeak
         );
     }
 }

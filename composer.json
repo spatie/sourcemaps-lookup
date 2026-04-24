@@ -16,8 +16,16 @@
     },
     "require-dev": {
         "pestphp/pest": "^3.0",
-        "axy/sourcemap": "^1.0"
+        "axy/sourcemap": "^1.0",
+        "spatie/sourcemaps-lookup-rust": "@dev"
     },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../sourcemaps-lookup-rust",
+            "options": { "symlink": true }
+        }
+    ],
     "autoload": {
         "psr-4": {
             "Spatie\\SourcemapsLookup\\": "src/"
