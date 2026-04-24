@@ -3,25 +3,20 @@
 namespace Spatie\SourcemapsLookup;
 
 use JsonException;
+use Spatie\SourcemapsLookup\Drivers\PhpParserDriver;
+use Spatie\SourcemapsLookup\Drivers\RawSegment;
+use Spatie\SourcemapsLookup\Drivers\SourceMapParserDriver;
+use Spatie\SourcemapsLookup\Exceptions\DriverUnavailable;
 use Spatie\SourcemapsLookup\Exceptions\InvalidSourceMap;
 use Spatie\SourcemapsLookup\Exceptions\UnsupportedSourceMap;
-use Spatie\SourcemapsLookup\Internal\LineIndex;
-use Spatie\SourcemapsLookup\Internal\LineParser;
-use Spatie\SourcemapsLookup\Internal\Segment;
 use Spatie\SourcemapsLookup\Internal\WalkBack;
 use Spatie\SourcemapsLookup\Scopes\Scope;
 
 class SourceMapLookup
 {
-    /**
-     * Default upper bound on how far scopeAt() will walk back through
-     * `sourcesContent` to find the enclosing function. Overridable per-call.
-     */
     public const DEFAULT_WALKBACK_LINES = 60;
 
-    private string $mappings;
-
-    private LineIndex $lineIndex;
+    private SourceMapParserDriver $driver;
 
     /** @var list<?string> */
     private array $sources;
@@ -34,68 +29,36 @@ class SourceMapLookup
 
     private string $sourceRoot;
 
-    /** Precomputed `$sourceRoot` with a trailing `/`; empty string when no sourceRoot. */
     private string $sourceRootPrefix;
 
-    /** @var array<int, true> Source indices flagged as third-party by `ignoreList`. */
+    /** @var array<int, true> */
     private array $ignoredIndices = [];
 
-    /**
-     * Lazy name→true map built on the first `isIgnored()` call. Covers both
-     * raw `sources[]` entries and their `sourceRoot`-resolved forms.
-     *
-     * @var array<string, true>|null
-     */
+    /** @var array<string, true>|null */
     private ?array $ignoredNames = null;
 
-    /** @var array<int, string> Packed-binary segment buffers (20 bytes/segment). */
-    private array $segmentCache = [];
-
-    /** @var array<int, array{0:int,1:int,2:int,3:int}> */
-    private array $stateCache = [];
-
-    /**
-     * Reverse index: fileIndex => ("sourceLine,sourceColumn" => GeneratedPosition).
-     * Built lazily on first findGenerated() call; null until then.
-     *
-     * @var array<int, array<string, GeneratedPosition>>|null
-     */
+    /** @var array<int, array<string, GeneratedPosition>>|null */
     private ?array $reverseIndex = null;
 
-    /**
-     * Lazy per-file split of `sourcesContent` into lines, used by scopeAt().
-     * A `null` entry means the source has no inlined content.
-     *
-     * @var array<int, list<string>|null>
-     */
+    /** @var array<int, list<string>|null> */
     private array $splitLines = [];
 
-    /**
-     * Walk-back chain cache keyed by "fileIndex,sourceLine,maxLinesBack".
-     * Stores the raw WalkBack::find() result so the Scope objects wrapping
-     * it stay query-specific (their innermost Position carries the queried
-     * column).
-     *
-     * @var array<string, list<array{name: ?string, line: int, column: int}>>
-     */
+    /** @var array<string, list<array{name: ?string, line: int, column: int}>> */
     private array $scopeChainCache = [];
 
-    private function __construct(array $data)
+    private function __construct(array $data, ?SourceMapParserDriver $driver = null)
     {
         if (isset($data['sections'])) {
             throw new UnsupportedSourceMap('Indexed (sectioned) source maps are not supported');
         }
-
         if (($data['version'] ?? null) !== 3) {
             throw new InvalidSourceMap('Only Source Map v3 is supported');
         }
-
         foreach (['sources', 'mappings'] as $required) {
             if (! array_key_exists($required, $data)) {
                 throw new InvalidSourceMap("Missing required key: $required");
             }
         }
-
         if (! is_string($data['mappings'])) {
             throw new InvalidSourceMap('mappings must be a string');
         }
@@ -132,7 +95,6 @@ class SourceMapLookup
             }
         }
 
-        $this->mappings = $data['mappings'];
         $this->sources = $data['sources'];
         $this->names = $data['names'] ?? [];
         $this->sourcesContent = $data['sourcesContent'] ?? [];
@@ -140,16 +102,17 @@ class SourceMapLookup
         $this->sourceRootPrefix = $this->sourceRoot === '' || str_ends_with($this->sourceRoot, '/')
             ? $this->sourceRoot
             : $this->sourceRoot.'/';
-        $this->lineIndex = new LineIndex($this->mappings);
-        $this->stateCache[-1] = [0, 0, 0, 0];
+
+        $this->driver = $driver ?? self::autoPickDriver();
+        $this->driver->load($data['mappings'], count($this->sources), count($this->names));
     }
 
-    public static function fromArray(array $data): self
+    public static function fromArray(array $data, ?SourceMapParserDriver $driver = null): self
     {
-        return new self($data);
+        return new self($data, $driver);
     }
 
-    public static function fromJson(string $json): self
+    public static function fromJson(string $json, ?SourceMapParserDriver $driver = null): self
     {
         try {
             $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
@@ -160,16 +123,39 @@ class SourceMapLookup
             throw new InvalidSourceMap('Decoded JSON must be an object');
         }
 
-        return new self($data);
+        return new self($data, $driver);
     }
 
-    public static function fromFile(string $path): self
+    public static function fromFile(string $path, ?SourceMapParserDriver $driver = null): self
     {
         if (! is_file($path) || ! is_readable($path)) {
             throw new InvalidSourceMap("Could not read source map file: $path");
         }
 
-        return self::fromJson(file_get_contents($path));
+        return self::fromJson(file_get_contents($path), $driver);
+    }
+
+    /**
+     * Zero-config driver pick. If the Rust subpackage is installed and
+     * the FFI .dylib loads, use Rust. Otherwise fall back to PHP.
+     * Never throws DriverUnavailable — that is only for explicit requests.
+     */
+    private static function autoPickDriver(): SourceMapParserDriver
+    {
+        $rustClass = '\\Spatie\\SourcemapsLookupRust\\RustParserDriver';
+
+        if (class_exists($rustClass)
+            && extension_loaded('ffi')
+            && $rustClass::isAvailable()) {
+            try {
+                return new $rustClass();
+            } catch (DriverUnavailable) {
+                // Binary load or probe failed after isAvailable() lied.
+                // Fall through to PHP driver.
+            }
+        }
+
+        return new PhpParserDriver();
     }
 
     /** @return list<?string> */
@@ -183,19 +169,11 @@ class SourceMapLookup
         return $this->sourcesContent[$fileIndex] ?? null;
     }
 
-    /**
-     * Reports whether a source is marked as third-party via the `ignoreList`
-     * field (ECMA-426). Accepts either the raw entry from `sources[]` or its
-     * `sourceRoot`-resolved form (i.e. what `Position::$sourceFileName`
-     * exposes), whichever the caller has available. Unknown names return
-     * `false`.
-     */
     public function isIgnored(string $source): bool
     {
         if ($this->ignoredIndices === []) {
             return false;
         }
-
         if ($this->ignoredNames === null) {
             $this->ignoredNames = [];
             foreach ($this->ignoredIndices as $index => $_) {
@@ -214,35 +192,18 @@ class SourceMapLookup
         return isset($this->ignoredNames[$source]);
     }
 
-    /**
-     * Return a 1-based-line-keyed slice of an inlined source file.
-     *
-     * Line numbers are 1-based and inclusive. Out-of-range bounds are clamped:
-     * $fromLine below 1 becomes 1, $toLine past the last line becomes the last
-     * line. If the clamped range is empty (fromLine > toLine, or fromLine past
-     * the end of the file), returns an empty array.
-     *
-     * Returns null when the source file has no inlined content (either the
-     * fileIndex is out of range, or sourcesContent[$fileIndex] is null). This
-     * mirrors sourceContent()'s null semantics so callers can distinguish
-     * "no content available" from "empty range".
-     *
-     * @return array<int, string>|null
-     */
+    /** @return array<int, string>|null */
     public function sourceLines(int $fileIndex, int $fromLine, int $toLine): ?array
     {
         $lines = $this->splitLinesFor($fileIndex);
         if ($lines === null) {
             return null;
         }
-
         $fromLine = max(1, $fromLine);
         $toLine = min(count($lines), $toLine);
-
         if ($fromLine > $toLine) {
             return [];
         }
-
         $result = [];
         for ($i = $fromLine; $i <= $toLine; $i++) {
             $result[$i] = $lines[$i - 1];
@@ -251,66 +212,13 @@ class SourceMapLookup
         return $result;
     }
 
-    /**
-     * Resolve a generated position (line, column) to its original source position.
-     *
-     * @param  int  $line  1-based line in the generated file.
-     * @param  int  $column  0-based column in the generated file.
-     * @return Position|null Returns null in two distinct cases (treated the same):
-     *                       - the nearest-preceding segment for that position is a 1-field "unmapped"
-     *                       segment (bundler-inserted code with no source origin);
-     *                       - no segment covers the queried position (blank line, column before the
-     *                       first segment, or line beyond the map).
-     *
-     * Throws InvalidSourceMap only if the map itself is malformed (bad mappings
-     * encoding or out-of-range source/name index). A successful-but-empty lookup
-     * is never an exception.
-     */
     public function lookup(int $line, int $column): ?Position
     {
-        $lineIdx = $line - 1;
-        if ($lineIdx < 0 || $lineIdx >= $this->lineIndex->count()) {
-            return null;
-        }
+        $raw = $this->driver->lookup($line - 1, $column);
 
-        $packed = $this->segmentsForLine($lineIdx);
-        if ($packed === '') {
-            return null;
-        }
-
-        $best = $this->findBestSegment($packed, $column);
-        if ($best === null || ! $best->isMapped()) {
-            return null;
-        }
-
-        return new Position(
-            sourceLine: $best->sourceLine + 1,
-            sourceColumn: $best->sourceColumn,
-            sourceFileName: $this->resolveFileName($best->sourceIndex),
-            sourceFileIndex: $best->sourceIndex,
-            name: $best->nameIndex !== null ? ($this->names[$best->nameIndex] ?? null) : null,
-        );
+        return $raw === null ? null : $this->wrap($raw);
     }
 
-    /**
-     * Resolve a generated position to the enclosing source-language scope.
-     *
-     * Modeled after the consumer semantics of the ECMA-426 Scopes proposal:
-     * "given a generated position, tell me the innermost source-language scope
-     * and its enclosing chain." Because no bundler currently emits the
-     * `scopes` field, the implementation is a heuristic polyfill that walks
-     * `sourcesContent` backward looking for enclosing function declarations.
-     *
-     * Returns:
-     *   - a `Scope` with `$parent` set to any lexically enclosing scopes;
-     *   - a single-level `Scope` when only the mapping's `name` is available
-     *     (no inlined `sourcesContent` on which to walk);
-     *   - `null` when the generated position resolves to nothing.
-     *
-     * For anonymous function boundaries (e.g. `arr.map(() => { … })`), the
-     * `Scope::$name` is `null` but a Scope is still returned, signalling
-     * "yes, this is a function boundary whose binding we couldn't recover."
-     */
     public function scopeAt(int $line, int $column, int $maxLinesBack = self::DEFAULT_WALKBACK_LINES): ?Scope
     {
         $position = $this->lookup($line, $column);
@@ -325,7 +233,6 @@ class SourceMapLookup
                 ? []
                 : WalkBack::find($lines, $position->sourceLine, $maxLinesBack);
         }
-
         $chain = $this->scopeChainCache[$cacheKey];
 
         if ($chain === []) {
@@ -334,9 +241,6 @@ class SourceMapLookup
                 : null;
         }
 
-        // Build the Scope chain outer-to-inner. The innermost entry carries the
-        // queried $position verbatim; outer entries get a Position constructed
-        // from the declaration line WalkBack recorded.
         $scope = null;
         for ($i = count($chain) - 1; $i >= 0; $i--) {
             $entry = $chain[$i];
@@ -355,31 +259,6 @@ class SourceMapLookup
         return $scope;
     }
 
-    /** @return list<string>|null lines of sourcesContent for $fileIndex, cached lazily. */
-    private function splitLinesFor(int $fileIndex): ?array
-    {
-        if (array_key_exists($fileIndex, $this->splitLines)) {
-            return $this->splitLines[$fileIndex];
-        }
-
-        $content = $this->sourceContent($fileIndex);
-
-        return $this->splitLines[$fileIndex] = $content === null ? null : explode("\n", $content);
-    }
-
-    /**
-     * Reverse lookup: given a position in an original source file, return the
-     * generated (line, column) it maps to. Exact match only, no nearest-preceding
-     * fallback. Useful for editor tooling and coverage mapping, not for stack
-     * traces (use lookup() for those).
-     *
-     * Builds a full reverse index on first call (parses every line), so the cost
-     * is paid once. Callers that only use lookup() never pay this cost.
-     *
-     * @param  int  $fileIndex  Index into the map's sources array.
-     * @param  int  $sourceLine  1-based line in the original source file.
-     * @param  int  $sourceColumn  0-based column in the original source file.
-     */
     public function findGenerated(int $fileIndex, int $sourceLine, int $sourceColumn): ?GeneratedPosition
     {
         $this->reverseIndex ??= $this->buildReverseIndex();
@@ -392,18 +271,9 @@ class SourceMapLookup
     private function buildReverseIndex(): array
     {
         $index = [];
-        $total = $this->lineIndex->count();
+        $total = $this->driver->lineCount();
         for ($lineIdx = 0; $lineIdx < $total; $lineIdx++) {
-            $packed = $this->segmentsForLine($lineIdx);
-            if ($packed === '') {
-                continue;
-            }
-            $count = intdiv(strlen($packed), Segment::SIZE);
-            for ($i = 0; $i < $count; $i++) {
-                $seg = Segment::fromPacked($packed, $i);
-                if (! $seg->isMapped()) {
-                    continue;
-                }
+            foreach ($this->driver->segmentsForLine($lineIdx) as $seg) {
                 $key = $seg->sourceLine.','.$seg->sourceColumn;
                 if (! isset($index[$seg->sourceIndex][$key])) {
                     $index[$seg->sourceIndex][$key] = new GeneratedPosition(
@@ -417,59 +287,26 @@ class SourceMapLookup
         return $index;
     }
 
-    private function segmentsForLine(int $lineIdx): string
+    private function wrap(RawSegment $raw): Position
     {
-        if (isset($this->segmentCache[$lineIdx])) {
-            return $this->segmentCache[$lineIdx];
-        }
-
-        // Find the nearest cached state before $lineIdx; walk forward from there.
-        $cursor = $lineIdx - 1;
-        while ($cursor >= 0 && ! isset($this->stateCache[$cursor])) {
-            $cursor--;
-        }
-        // $cursor is now either -1 (initial state) or the most recent parsed line.
-
-        for ($i = $cursor + 1; $i <= $lineIdx; $i++) {
-            [$packed, $newState] = LineParser::parse(
-                $this->mappings,
-                $this->lineIndex->offset($i),
-                $this->lineIndex->end($i),
-                $this->stateCache[$i - 1],
-                count($this->sources),
-                count($this->names),
-            );
-            $this->segmentCache[$i] = $packed;
-            $this->stateCache[$i] = $newState;
-        }
-
-        return $this->segmentCache[$lineIdx];
+        return new Position(
+            sourceLine: $raw->sourceLine + 1,
+            sourceColumn: $raw->sourceColumn,
+            sourceFileName: $this->resolveFileName($raw->sourceIndex),
+            sourceFileIndex: $raw->sourceIndex,
+            name: $raw->nameIndex !== null ? ($this->names[$raw->nameIndex] ?? null) : null,
+        );
     }
 
-    /**
-     * Binary-search the packed buffer for the last segment with
-     * generatedColumn <= $column. Only the 4-byte generatedColumn of each
-     * probed segment is unpacked; the winner's full record is materialized
-     * once at the end.
-     */
-    private function findBestSegment(string $packed, int $column): ?Segment
+    /** @return list<string>|null */
+    private function splitLinesFor(int $fileIndex): ?array
     {
-        $count = intdiv(strlen($packed), Segment::SIZE);
-        $lo = 0;
-        $hi = $count - 1;
-        $best = -1;
-        while ($lo <= $hi) {
-            $mid = ($lo + $hi) >> 1;
-            $genCol = unpack('l', $packed, $mid * Segment::SIZE)[1];
-            if ($genCol <= $column) {
-                $best = $mid;
-                $lo = $mid + 1;
-            } else {
-                $hi = $mid - 1;
-            }
+        if (array_key_exists($fileIndex, $this->splitLines)) {
+            return $this->splitLines[$fileIndex];
         }
+        $content = $this->sourceContent($fileIndex);
 
-        return $best < 0 ? null : Segment::fromPacked($packed, $best);
+        return $this->splitLines[$fileIndex] = $content === null ? null : explode("\n", $content);
     }
 
     private function resolveFileName(int $sourceIndex): ?string
