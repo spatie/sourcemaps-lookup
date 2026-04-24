@@ -21,11 +21,11 @@ it('constructs from JSON', function () {
     expect(SourceMapLookup::fromJson($json))->toBeInstanceOf(SourceMapLookup::class);
 });
 
-it('constructs from a file path', function () {
-    $map = SourceMapLookup::fromFile(__DIR__.'/../fixtures/axy/app.js.map');
+it('constructs from a file path', function (callable $driverFactory) {
+    $map = SourceMapLookup::fromFile(__DIR__.'/../fixtures/axy/app.js.map', $driverFactory());
     expect($map)->toBeInstanceOf(SourceMapLookup::class);
     expect($map->lookup(2, 21)?->sourceFileName)->toBe('carry.ts');
-});
+})->with('drivers');
 
 it('throws a clear error when the file cannot be read', function () {
     SourceMapLookup::fromFile('/nonexistent/definitely/not/here.map');
@@ -88,14 +88,14 @@ it('returns null when no segments exist on the target line', function () {
     expect($map->lookup(2, 0))->toBeNull(); // line 2 doesn't exist
 });
 
-it('returns a position for a 4-field mapped segment', function () {
+it('returns a position for a 4-field mapped segment', function (callable $driverFactory) {
     // "AAAA" on line 1: genCol=0 -> srcIdx=0, srcLine=0, srcCol=0
     $map = SourceMapLookup::fromArray([
         'version' => 3,
         'sources' => ['src/a.ts'],
         'names' => [],
         'mappings' => 'AAAA',
-    ]);
+    ], $driverFactory());
     $pos = $map->lookup(1, 0);
     expect($pos)->not->toBeNull();
     expect($pos->sourceLine)->toBe(1);     // 0-based 0 -> 1-based 1
@@ -103,7 +103,7 @@ it('returns a position for a 4-field mapped segment', function () {
     expect($pos->sourceFileName)->toBe('src/a.ts');
     expect($pos->sourceFileIndex)->toBe(0);
     expect($pos->name)->toBeNull();
-});
+})->with('drivers');
 
 it('returns a position with name for a 5-field segment', function () {
     // "AAAAA" -> 5 fields all zero: maps to (0,0) with nameIndex=0
@@ -116,28 +116,28 @@ it('returns a position with name for a 5-field segment', function () {
     expect($map->lookup(1, 0)->name)->toBe('myFn');
 });
 
-it('returns null when best match is an unmapped (1-field) segment', function () {
+it('returns null when best match is an unmapped (1-field) segment', function (callable $driverFactory) {
     // "A" = 1-field segment at genCol=0, unmapped
     $map = SourceMapLookup::fromArray([
         'version' => 3,
         'sources' => [],
         'names' => [],
         'mappings' => 'A',
-    ]);
+    ], $driverFactory());
     expect($map->lookup(1, 5))->toBeNull();
-});
+})->with('drivers');
 
-it('picks the last segment with generatedColumn <= column', function () {
+it('picks the last segment with generatedColumn <= column', function (callable $driverFactory) {
     // "AAAA,CAEC" on line 1: seg1 at col 0, seg2 at col 1
     $map = SourceMapLookup::fromArray([
         'version' => 3,
         'sources' => ['a.ts'],
         'names' => [],
         'mappings' => 'AAAA,CAEC',
-    ]);
+    ], $driverFactory());
     expect($map->lookup(1, 0)->sourceLine)->toBe(1);  // seg1
     expect($map->lookup(1, 5)->sourceLine)->toBe(3);  // seg2 (0 + 2 = line 2 0-based = 3 1-based)
-});
+})->with('drivers');
 
 it('returns null when column is before the first segment', function () {
     // "CAAA" -> first segment at genCol=1
@@ -150,16 +150,16 @@ it('returns null when column is before the first segment', function () {
     expect($map->lookup(1, 0))->toBeNull();
 });
 
-it('applies sourceRoot to resolved file names', function () {
+it('applies sourceRoot to resolved file names', function (callable $driverFactory) {
     $map = SourceMapLookup::fromArray([
         'version' => 3,
         'sourceRoot' => 'webpack:///',
         'sources' => ['src/a.ts'],
         'names' => [],
         'mappings' => 'AAAA',
-    ]);
+    ], $driverFactory());
     expect($map->lookup(1, 0)->sourceFileName)->toBe('webpack:///src/a.ts');
-});
+})->with('drivers');
 
 it('appends / to sourceRoot when it does not end with one (spec §DecodeSourceMapSources)', function () {
     $map = SourceMapLookup::fromArray([
