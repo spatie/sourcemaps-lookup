@@ -153,12 +153,12 @@ it('matches axy getPosition on app.js.map (line 2, col 21)', function () {
     $map = SourceMapLookup::fromJson(
         file_get_contents(__DIR__.'/../fixtures/axy/app.js.map')
     );
-    $pos = $map->lookup(2, 21);
-    expect($pos)->not->toBeNull();
-    expect($pos->sourceLine)->toBe(6);        // axy: 0-based 5
-    expect($pos->sourceColumn)->toBe(20);
-    expect($pos->sourceFileName)->toBe('carry.ts');
-    expect($pos->name)->toBe('carry');
+    $position = $map->lookup(2, 21);
+    expect($position)->not->toBeNull();
+    expect($position->sourceLine)->toBe(6);        // axy: 0-based 5
+    expect($position->sourceColumn)->toBe(20);
+    expect($position->sourceFileName)->toBe('carry.ts');
+    expect($position->name)->toBe('carry');
 });
 
 it('returns null beyond the mapping range (SearchTest parity)', function () {

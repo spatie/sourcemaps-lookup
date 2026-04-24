@@ -6,12 +6,12 @@ use Spatie\SourcemapsLookup\Position;
 use Spatie\SourcemapsLookup\SourceMapLookup;
 
 // Mirror of Flare's Domain/Error/Support/SourceMaps/SourceMapPosition usage shape.
-function flareSnippet(SourceMapLookup $map, Position $pos, int $context = 10): array
+function flareSnippet(SourceMapLookup $map, Position $position, int $context = 10): array
 {
-    $content = $map->sourceContent($pos->sourceFileIndex) ?? '';
+    $content = $map->sourceContent($position->sourceFileIndex) ?? '';
     $lines = explode("\n", $content);
-    $start = max(0, $pos->sourceLine - 1 - $context);
-    $end = min(count($lines) - 1, $pos->sourceLine - 1 + $context);
+    $start = max(0, $position->sourceLine - 1 - $context);
+    $end = min(count($lines) - 1, $position->sourceLine - 1 + $context);
 
     return array_slice($lines, $start, $end - $start + 1);
 }
@@ -45,8 +45,8 @@ it('handles missing sourceContent gracefully', function () {
         'names' => [],
         'mappings' => 'AAAA',
     ]);
-    $pos = $map->lookup(1, 0);
-    expect($map->sourceContent($pos->sourceFileIndex))->toBeNull();
+    $position = $map->lookup(1, 0);
+    expect($map->sourceContent($position->sourceFileIndex))->toBeNull();
 });
 
 it('returns null for unmapped frames (Flare shows "source unavailable")', function () {

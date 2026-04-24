@@ -22,61 +22,61 @@ function generateRandomMap(int $seed, int $lineCount, int $segmentsPerLine): arr
     $names = ['a', 'b', 'c', 'd'];
     $segments = [];
 
-    $runningSrcIdx = 0;
-    $runningSrcLine = 0;
-    $runningSrcCol = 0;
-    $runningNameIdx = 0;
+    $runningSourceIndex = 0;
+    $runningSourceLine = 0;
+    $runningSourceColumn = 0;
+    $runningNameIndex = 0;
 
-    for ($l = 0; $l < $lineCount; $l++) {
-        $lineSegs = [];
-        $n = mt_rand(0, $segmentsPerLine);
-        for ($s = 0; $s < $n; $s++) {
-            $genColDelta = $s === 0 ? mt_rand(0, 10) : mt_rand(1, 10);
+    for ($lineNumber = 0; $lineNumber < $lineCount; $lineNumber++) {
+        $lineSegments = [];
+        $segmentCount = mt_rand(0, $segmentsPerLine);
+        for ($segmentNumber = 0; $segmentNumber < $segmentCount; $segmentNumber++) {
+            $generatedColumnDelta = $segmentNumber === 0 ? mt_rand(0, 10) : mt_rand(1, 10);
 
             // Shape: 0 = 1-field (unmapped), 1 = 4-field, 2 = 5-field (with name).
             $shape = mt_rand(0, 2);
             if ($shape === 0) {
-                $lineSegs[] = [$genColDelta];
+                $lineSegments[] = [$generatedColumnDelta];
 
                 continue;
             }
 
-            $srcIdxDelta = mt_rand(-1, 1);
-            $newSrcIdx = $runningSrcIdx + $srcIdxDelta;
-            if ($newSrcIdx < 0 || $newSrcIdx >= count($sources)) {
-                $srcIdxDelta = 0;
-                $newSrcIdx = $runningSrcIdx;
+            $sourceIndexDelta = mt_rand(-1, 1);
+            $newSourceIndex = $runningSourceIndex + $sourceIndexDelta;
+            if ($newSourceIndex < 0 || $newSourceIndex >= count($sources)) {
+                $sourceIndexDelta = 0;
+                $newSourceIndex = $runningSourceIndex;
             }
-            $srcLineDelta = mt_rand(-2, 5);
-            $srcColDelta = mt_rand(-5, 5);
+            $sourceLineDelta = mt_rand(-2, 5);
+            $sourceColumnDelta = mt_rand(-5, 5);
 
-            $runningSrcIdx = $newSrcIdx;
-            $runningSrcLine += $srcLineDelta;
-            if ($runningSrcLine < 0) {
-                $runningSrcLine = 0;
+            $runningSourceIndex = $newSourceIndex;
+            $runningSourceLine += $sourceLineDelta;
+            if ($runningSourceLine < 0) {
+                $runningSourceLine = 0;
             }
-            $runningSrcCol += $srcColDelta;
-            if ($runningSrcCol < 0) {
-                $runningSrcCol = 0;
+            $runningSourceColumn += $sourceColumnDelta;
+            if ($runningSourceColumn < 0) {
+                $runningSourceColumn = 0;
             }
 
             if ($shape === 1) {
-                $lineSegs[] = [$genColDelta, $srcIdxDelta, $srcLineDelta, $srcColDelta];
+                $lineSegments[] = [$generatedColumnDelta, $sourceIndexDelta, $sourceLineDelta, $sourceColumnDelta];
 
                 continue;
             }
 
             // shape === 2: 5-field
-            $nameIdxDelta = mt_rand(-1, 1);
-            $newNameIdx = $runningNameIdx + $nameIdxDelta;
-            if ($newNameIdx < 0 || $newNameIdx >= count($names)) {
-                $nameIdxDelta = 0;
-                $newNameIdx = $runningNameIdx;
+            $nameIndexDelta = mt_rand(-1, 1);
+            $newNameIndex = $runningNameIndex + $nameIndexDelta;
+            if ($newNameIndex < 0 || $newNameIndex >= count($names)) {
+                $nameIndexDelta = 0;
+                $newNameIndex = $runningNameIndex;
             }
-            $runningNameIdx = $newNameIdx;
-            $lineSegs[] = [$genColDelta, $srcIdxDelta, $srcLineDelta, $srcColDelta, $nameIdxDelta];
+            $runningNameIndex = $newNameIndex;
+            $lineSegments[] = [$generatedColumnDelta, $sourceIndexDelta, $sourceLineDelta, $sourceColumnDelta, $nameIndexDelta];
         }
-        $segments[] = $lineSegs;
+        $segments[] = $lineSegments;
     }
 
     $encoder = Encoder::getStandardInstance();
@@ -84,8 +84,8 @@ function generateRandomMap(int $seed, int $lineCount, int $segmentsPerLine): arr
     $mappings = implode(';', array_map(function (array $line) use ($encoder) {
         $parts = array_map(function (array $fields) use ($encoder) {
             $encoded = '';
-            foreach ($fields as $f) {
-                $encoded .= $encoder->encode($f);
+            foreach ($fields as $field) {
+                $encoded .= $encoder->encode($field);
             }
 
             return $encoded;
@@ -110,13 +110,13 @@ it('matches axy on a grid of random maps', function () {
         $ours = SourceMapLookup::fromArray($data);
 
         for ($line = 1; $line <= 20; $line++) {
-            foreach ([0, 1, 5, 20, 100] as $col) {
-                $pgAxy = new PosGenerated;
-                $pgAxy->line = $line - 1;
+            foreach ([0, 1, 5, 20, 100] as $column) {
+                $axyGeneratedPosition = new PosGenerated;
+                $axyGeneratedPosition->line = $line - 1;
                 $bestAxy = null;
-                foreach ($axy->find(new PosMap($pgAxy)) as $c) {
-                    if ($c->generated->column <= $col) {
-                        $bestAxy = $c;
+                foreach ($axy->find(new PosMap($axyGeneratedPosition)) as $candidate) {
+                    if ($candidate->generated->column <= $column) {
+                        $bestAxy = $candidate;
                     } else {
                         break;
                     }
@@ -133,18 +133,18 @@ it('matches axy on a grid of random maps', function () {
                         'name' => $bestAxy->source->name,
                     ];
 
-                $oursPos = $ours->lookup($line, $col);
-                $oursResult = $oursPos === null
+                $oursPosition = $ours->lookup($line, $column);
+                $oursResult = $oursPosition === null
                     ? null
                     : [
-                        'sourceLine' => $oursPos->sourceLine,
-                        'sourceColumn' => $oursPos->sourceColumn,
-                        'sourceFileName' => $oursPos->sourceFileName,
-                        'name' => $oursPos->name,
+                        'sourceLine' => $oursPosition->sourceLine,
+                        'sourceColumn' => $oursPosition->sourceColumn,
+                        'sourceFileName' => $oursPosition->sourceFileName,
+                        'name' => $oursPosition->name,
                     ];
 
                 expect($oursResult)
-                    ->toEqual($axyResult, "mismatch at seed=$seed line=$line col=$col");
+                    ->toEqual($axyResult, "mismatch at seed=$seed line=$line column=$column");
             }
         }
     }

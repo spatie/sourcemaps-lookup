@@ -21,10 +21,10 @@ class Base64Vlq
 
         $value = 0;
         $shift = 0;
-        $len = strlen($input);
+        $length = strlen($input);
 
         while (true) {
-            if ($offset >= $len) {
+            if ($offset >= $length) {
                 throw new InvalidSourceMap('Unexpected end of VLQ sequence');
             }
             $digit = $table[ord($input[$offset])] ?? -1;
@@ -54,9 +54,9 @@ class Base64Vlq
     {
         // 128-entry ord -> 6-bit base64 value (-1 = invalid)
         $table = array_fill(0, 128, -1);
-        $alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
         for ($i = 0; $i < 64; $i++) {
-            $table[ord($alpha[$i])] = $i;
+            $table[ord($alphabet[$i])] = $i;
         }
 
         return $table;

@@ -36,7 +36,7 @@ class LineParser
         $generatedColumn = 0;
         [$sourceIndex, $sourceLine, $sourceColumn, $nameIndex] = $state;
 
-        $NULL = Segment::NULL_FIELD;
+        $nullField = Segment::NULL_FIELD;
 
         $offset = $start;
         while ($offset < $end) {
@@ -47,49 +47,49 @@ class LineParser
                 continue;
             }
 
-            $segStart = $offset;
+            $segmentStart = $offset;
 
             // Field 1: generatedColumn delta, always present.
             $generatedColumn += Base64Vlq::decode($mappings, $offset);
 
             if ($offset >= $end || $mappings[$offset] === ',') {
                 // 1-field (unmapped) segment.
-                $packed .= pack('l5', $generatedColumn, $NULL, 0, 0, $NULL);
+                $packed .= pack('l5', $generatedColumn, $nullField, 0, 0, $nullField);
             } else {
                 // Fields 2 to 4: sourceIndex, sourceLine, sourceColumn deltas.
                 $sourceIndex += Base64Vlq::decode($mappings, $offset);
                 if ($sourceIndex < 0 || $sourceIndex >= $sourceCount) {
                     throw new InvalidSourceMap(
-                        "Segment at offset $segStart references source index $sourceIndex (out of range: $sourceCount sources)"
+                        "Segment at offset $segmentStart references source index $sourceIndex (out of range: $sourceCount sources)"
                     );
                 }
                 if ($offset >= $end || $mappings[$offset] === ',') {
                     throw new InvalidSourceMap(
-                        "Invalid segment at offset $segStart: 2 fields (expected 1, 4, or 5)"
+                        "Invalid segment at offset $segmentStart: 2 fields (expected 1, 4, or 5)"
                     );
                 }
                 $sourceLine += Base64Vlq::decode($mappings, $offset);
                 if ($offset >= $end || $mappings[$offset] === ',') {
                     throw new InvalidSourceMap(
-                        "Invalid segment at offset $segStart: 3 fields (expected 1, 4, or 5)"
+                        "Invalid segment at offset $segmentStart: 3 fields (expected 1, 4, or 5)"
                     );
                 }
                 $sourceColumn += Base64Vlq::decode($mappings, $offset);
 
                 if ($offset >= $end || $mappings[$offset] === ',') {
                     // 4-field segment.
-                    $packed .= pack('l5', $generatedColumn, $sourceIndex, $sourceLine, $sourceColumn, $NULL);
+                    $packed .= pack('l5', $generatedColumn, $sourceIndex, $sourceLine, $sourceColumn, $nullField);
                 } else {
                     // Field 5: nameIndex delta.
                     $nameIndex += Base64Vlq::decode($mappings, $offset);
                     if ($nameIndex < 0 || $nameIndex >= $nameCount) {
                         throw new InvalidSourceMap(
-                            "Segment at offset $segStart references name index $nameIndex (out of range: $nameCount names)"
+                            "Segment at offset $segmentStart references name index $nameIndex (out of range: $nameCount names)"
                         );
                     }
                     if ($offset < $end && $mappings[$offset] !== ',') {
                         throw new InvalidSourceMap(
-                            "Invalid segment at offset $segStart: more than 5 fields (expected 1, 4, or 5)"
+                            "Invalid segment at offset $segmentStart: more than 5 fields (expected 1, 4, or 5)"
                         );
                     }
                     $packed .= pack('l5', $generatedColumn, $sourceIndex, $sourceLine, $sourceColumn, $nameIndex);

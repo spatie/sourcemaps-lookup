@@ -8,13 +8,13 @@ use Spatie\SourcemapsLookup\Internal\WalkBack;
  * Helper: split a multiline string into the 0-indexed lines array WalkBack
  * expects. Keeps test bodies readable.
  */
-function wbLines(string $source): array
+function splitIntoLines(string $source): array
 {
     return explode("\n", $source);
 }
 
 it('returns an empty chain when no enclosing function is found', function () {
-    $lines = wbLines("const x = 1;\nthrow new Error();");
+    $lines = splitIntoLines("const x = 1;\nthrow new Error();");
     expect(WalkBack::find($lines, 2, 60))->toBe([]);
 });
 
@@ -24,7 +24,7 @@ function foo() {
     throw new Error('boom');
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 2, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 2, 60);
     expect($chain)->toHaveCount(1);
     expect($chain[0]['name'])->toBe('foo');
     expect($chain[0]['line'])->toBe(1);
@@ -36,7 +36,7 @@ const bar = () => {
     throw new Error('boom');
 };
 JS;
-    $chain = WalkBack::find(wbLines($source), 2, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 2, 60);
     expect($chain)->toHaveCount(1);
     expect($chain[0]['name'])->toBe('bar');
 });
@@ -47,7 +47,7 @@ const baz = async function () {
     throw new Error('boom');
 };
 JS;
-    $chain = WalkBack::find(wbLines($source), 2, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 2, 60);
     expect($chain)->toHaveCount(1);
     expect($chain[0]['name'])->toBe('baz');
 });
@@ -58,7 +58,7 @@ let qux = async () => {
     throw new Error('boom');
 };
 JS;
-    $chain = WalkBack::find(wbLines($source), 2, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 2, 60);
     expect($chain[0]['name'])->toBe('qux');
 });
 
@@ -70,7 +70,7 @@ class Foo {
     }
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 3, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 3, 60);
     expect($chain)->toHaveCount(1);
     expect($chain[0]['name'])->toBe('render');
 });
@@ -83,7 +83,7 @@ class Foo {
     }
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 3, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 3, 60);
     expect($chain[0]['name'])->toBe('save');
 });
 
@@ -95,7 +95,7 @@ function Outer() {
     };
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 3, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 3, 60);
     expect($chain)->toHaveCount(2);
     expect($chain[0]['name'])->toBe('onClick');
     expect($chain[1]['name'])->toBe('Outer');
@@ -109,7 +109,7 @@ function Outer() {
     };
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 3, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 3, 60);
     expect($chain[0]['line'])->toBe(2); // const onClick = () =>
     expect($chain[1]['line'])->toBe(1); // function Outer()
 });
@@ -120,7 +120,7 @@ it('emits a nameless entry for an anonymous arrow callback', function () {
     throw new Error('boom');
 });
 JS;
-    $chain = WalkBack::find(wbLines($source), 2, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 2, 60);
     expect($chain)->toHaveCount(1);
     expect($chain[0]['name'])->toBeNull();
 });
@@ -131,7 +131,7 @@ setTimeout(function () {
     throw new Error('boom');
 }, 0);
 JS;
-    $chain = WalkBack::find(wbLines($source), 2, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 2, 60);
     expect($chain)->toHaveCount(1);
     expect($chain[0]['name'])->toBeNull();
 });
@@ -143,7 +143,7 @@ function safe() {
     throw new Error('boom');
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 3, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 3, 60);
     expect($chain[0]['name'])->toBe('safe');
 });
 
@@ -154,7 +154,7 @@ function safe() {
     throw new Error('boom');
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 3, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 3, 60);
     expect($chain[0]['name'])->toBe('safe');
 });
 
@@ -165,7 +165,7 @@ function safe() {
     throw new Error('boom');
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 3, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 3, 60);
     expect($chain[0]['name'])->toBe('safe');
 });
 
@@ -176,7 +176,7 @@ function safe() {
     throw new Error('boom');
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 3, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 3, 60);
     expect($chain[0]['name'])->toBe('safe');
 });
 
@@ -187,7 +187,7 @@ function safe() {
     throw new Error('boom');
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 3, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 3, 60);
     expect($chain[0]['name'])->toBe('safe');
 });
 
@@ -201,7 +201,7 @@ function outer() {
     throw new Error('boom');
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 3, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 3, 60);
     expect($chain[0]['name'])->toBe('outer');
 });
 
@@ -212,20 +212,20 @@ function safe() {
     throw new Error('boom');
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 3, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 3, 60);
     expect($chain[0]['name'])->toBe('safe');
 });
 
 it('returns an empty chain when the declaration is beyond maxLinesBack', function () {
     // function decl on line 1, then 200 filler lines, then throw. Default 60 can't reach.
     $source = "function deep() {\n".str_repeat("    // filler\n", 200)."    throw new Error();\n}\n";
-    $chain = WalkBack::find(wbLines($source), 202, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 202, 60);
     expect($chain)->toBe([]);
 });
 
 it('finds the declaration when maxLinesBack is raised past it', function () {
     $source = "function deep() {\n".str_repeat("    // filler\n", 200)."    throw new Error();\n}\n";
-    $chain = WalkBack::find(wbLines($source), 202, 300);
+    $chain = WalkBack::find(splitIntoLines($source), 202, 300);
     expect($chain)->toHaveCount(1);
     expect($chain[0]['name'])->toBe('deep');
 });
@@ -239,7 +239,7 @@ function DeeplyNestedTrigger() {
     return onClick;
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 3, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 3, 60);
     expect($chain)->toHaveCount(2);
     expect($chain[0]['name'])->toBe('onClick');
     expect($chain[1]['name'])->toBe('DeeplyNestedTrigger');
@@ -247,7 +247,7 @@ JS;
 
 it('accepts a line at the very start of the file', function () {
     $source = 'throw new Error();';
-    expect(WalkBack::find(wbLines($source), 1, 60))->toBe([]);
+    expect(WalkBack::find(splitIntoLines($source), 1, 60))->toBe([]);
 });
 
 it('accepts an empty lines array', function () {
@@ -264,7 +264,7 @@ function Outer() {
     }
 }
 JS;
-    $chain = WalkBack::find(wbLines($source), 3, 60);
+    $chain = WalkBack::find(splitIntoLines($source), 3, 60);
     expect($chain)->toHaveCount(1);
     expect($chain[0]['name'])->toBe('Outer');
 });
@@ -272,7 +272,7 @@ JS;
 it('skips while, for, switch, and catch the same way', function () {
     foreach (['while', 'for', 'switch', 'catch'] as $keyword) {
         $source = "function Outer() {\n    $keyword (cond) {\n        throw new Error();\n    }\n}\n";
-        $chain = WalkBack::find(wbLines($source), 3, 60);
+        $chain = WalkBack::find(splitIntoLines($source), 3, 60);
         expect($chain)->toHaveCount(1)
             ->and($chain[0]['name'])->toBe('Outer', "on keyword $keyword");
     }

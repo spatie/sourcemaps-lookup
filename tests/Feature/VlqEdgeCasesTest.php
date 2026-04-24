@@ -13,30 +13,30 @@ const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 function vlqEncode(int $value): string
 {
     // Move sign bit into LSB (VLQ convention).
-    $v = $value < 0 ? ((-$value) << 1) | 1 : $value << 1;
-    $out = '';
+    $shifted = $value < 0 ? ((-$value) << 1) | 1 : $value << 1;
+    $encoded = '';
     do {
-        $digit = $v & 0x1F;
-        $v >>= 5;
-        if ($v > 0) {
+        $digit = $shifted & 0x1F;
+        $shifted >>= 5;
+        if ($shifted > 0) {
             $digit |= 0x20;  // continuation
         }
-        $out .= B64[$digit];
-    } while ($v > 0);
+        $encoded .= B64[$digit];
+    } while ($shifted > 0);
 
-    return $out;
+    return $encoded;
 }
 
-/** @param list<array{int,int,int,int,?int}> $segments  [genColDelta, srcIdxDelta, srcLineDelta, srcColDelta, ?nameIdxDelta] */
+/** @param list<array{int,int,int,int,?int}> $segments  [generatedColumnDelta, sourceIndexDelta, sourceLineDelta, sourceColumnDelta, ?nameIndexDelta] */
 function encodeLine(array $segments): string
 {
     $parts = [];
-    foreach ($segments as $s) {
-        $p = vlqEncode($s[0]).vlqEncode($s[1]).vlqEncode($s[2]).vlqEncode($s[3]);
-        if ($s[4] !== null) {
-            $p .= vlqEncode($s[4]);
+    foreach ($segments as $segment) {
+        $part = vlqEncode($segment[0]).vlqEncode($segment[1]).vlqEncode($segment[2]).vlqEncode($segment[3]);
+        if ($segment[4] !== null) {
+            $part .= vlqEncode($segment[4]);
         }
-        $parts[] = $p;
+        $parts[] = $part;
     }
 
     return implode(',', $parts);
@@ -62,9 +62,9 @@ it('decodes segments with multi-byte VLQ sourceColumn deltas', function () {
         'names' => [],
         'mappings' => $mappings,
     ]);
-    $pos = $map->lookup(1, 0);
-    expect($pos)->not->toBeNull();
-    expect($pos->sourceColumn)->toBe(1000);
+    $position = $map->lookup(1, 0);
+    expect($position)->not->toBeNull();
+    expect($position->sourceColumn)->toBe(1000);
 });
 
 it('decodes segments with very large (3+ byte) VLQ deltas', function () {
@@ -76,9 +76,9 @@ it('decodes segments with very large (3+ byte) VLQ deltas', function () {
         'names' => [],
         'mappings' => $mappings,
     ]);
-    $pos = $map->lookup(1, 0);
-    expect($pos)->not->toBeNull();
-    expect($pos->sourceLine)->toBe(100_001);  // 0-based 100_000 -> 1-based
+    $position = $map->lookup(1, 0);
+    expect($position)->not->toBeNull();
+    expect($position->sourceLine)->toBe(100_001);  // 0-based 100_000 -> 1-based
 });
 
 it('accepts negative sourceColumn delta (source order != generated order)', function () {
@@ -93,10 +93,10 @@ it('accepts negative sourceColumn delta (source order != generated order)', func
         'names' => [],
         'mappings' => $mappings,
     ]);
-    $seg1 = $map->lookup(1, 0);
-    $seg2 = $map->lookup(1, 10);
-    expect($seg1->sourceColumn)->toBe(50);
-    expect($seg2->sourceColumn)->toBe(10);  // moved backwards
+    $firstPosition = $map->lookup(1, 0);
+    $secondPosition = $map->lookup(1, 10);
+    expect($firstPosition->sourceColumn)->toBe(50);
+    expect($secondPosition->sourceColumn)->toBe(10);  // moved backwards
 });
 
 it('accepts negative sourceLine delta (source order != generated order)', function () {
@@ -127,6 +127,6 @@ it('surfaces rather than throws when cumulative sourceLine goes negative', funct
         'names' => [],
         'mappings' => $mappings,
     ]);
-    $pos = $map->lookup(1, 0);
-    expect($pos->sourceLine)->toBe(0);  // 1-based: -1 + 1 = 0.
+    $position = $map->lookup(1, 0);
+    expect($position->sourceLine)->toBe(0);  // 1-based: -1 + 1 = 0.
 });

@@ -9,12 +9,12 @@ use Spatie\SourcemapsLookup\SourceMapLookup;
 
 function axyLookup(AxySourceMap $map, int $line, int $column): ?array
 {
-    $pg = new PosGenerated;
-    $pg->line = $line - 1;
+    $generatedPosition = new PosGenerated;
+    $generatedPosition->line = $line - 1;
     $best = null;
-    foreach ($map->find(new PosMap($pg)) as $c) {
-        if ($c->generated->column <= $column) {
-            $best = $c;
+    foreach ($map->find(new PosMap($generatedPosition)) as $candidate) {
+        if ($candidate->generated->column <= $column) {
+            $best = $candidate;
         } else {
             break;
         }
@@ -33,16 +33,16 @@ function axyLookup(AxySourceMap $map, int $line, int $column): ?array
 
 function oursLookup(SourceMapLookup $map, int $line, int $column): ?array
 {
-    $p = $map->lookup($line, $column);
-    if ($p === null) {
+    $position = $map->lookup($line, $column);
+    if ($position === null) {
         return null;
     }
 
     return [
-        'sourceLine' => $p->sourceLine,
-        'sourceColumn' => $p->sourceColumn,
-        'sourceFileName' => $p->sourceFileName,
-        'name' => $p->name,
+        'sourceLine' => $position->sourceLine,
+        'sourceColumn' => $position->sourceColumn,
+        'sourceFileName' => $position->sourceFileName,
+        'name' => $position->name,
     ];
 }
 
@@ -63,9 +63,9 @@ it('matches axy lookup() on the first few positions of real fixtures', function 
     // axy is 0-based internally, we are 1-based on input, so we pass 1-based here.
     $lineCount = substr_count($data['mappings'], ';') + 1;
     for ($line = 1; $line <= min($lineCount, 20); $line++) {
-        foreach ([0, 5, 20, 100, 500] as $col) {
-            expect(oursLookup($ours, $line, $col))
-                ->toEqual(axyLookup($axy, $line, $col));
+        foreach ([0, 5, 20, 100, 500] as $column) {
+            expect(oursLookup($ours, $line, $column))
+                ->toEqual(axyLookup($axy, $line, $column));
         }
     }
 })->with('axyFixtures');

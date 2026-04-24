@@ -13,12 +13,12 @@ $initialState = [0, 0, 0, 0];
 function decodeAll(string $packed): array
 {
     $count = intdiv(strlen($packed), Segment::SIZE);
-    $out = [];
+    $segments = [];
     for ($i = 0; $i < $count; $i++) {
-        $out[] = Segment::fromPacked($packed, $i);
+        $segments[] = Segment::fromPacked($packed, $i);
     }
 
-    return $out;
+    return $segments;
 }
 
 it('returns no segments for an empty line', function () use ($initialState) {

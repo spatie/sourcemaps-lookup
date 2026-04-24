@@ -34,21 +34,21 @@ class Segment
     }
 
     /** Decode one segment out of a packed line buffer. */
-    public static function fromPacked(string $packed, int $segIndex): self
+    public static function fromPacked(string $packed, int $segmentIndex): self
     {
-        $f = unpack('l5', $packed, $segIndex * self::SIZE);
-        $srcIdx = $f[2] === self::NULL_FIELD ? null : $f[2];
-        if ($srcIdx === null) {
-            return new self(generatedColumn: $f[1]);
+        $fields = unpack('l5', $packed, $segmentIndex * self::SIZE);
+        $sourceIndex = $fields[2] === self::NULL_FIELD ? null : $fields[2];
+        if ($sourceIndex === null) {
+            return new self(generatedColumn: $fields[1]);
         }
-        $nameIdx = $f[5] === self::NULL_FIELD ? null : $f[5];
+        $nameIndex = $fields[5] === self::NULL_FIELD ? null : $fields[5];
 
         return new self(
-            generatedColumn: $f[1],
-            sourceIndex: $srcIdx,
-            sourceLine: $f[3],
-            sourceColumn: $f[4],
-            nameIndex: $nameIdx,
+            generatedColumn: $fields[1],
+            sourceIndex: $sourceIndex,
+            sourceLine: $fields[3],
+            sourceColumn: $fields[4],
+            nameIndex: $nameIndex,
         );
     }
 }

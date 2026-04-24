@@ -15,10 +15,10 @@ class LineIndex
     {
         $this->totalLength = strlen($mappings);
         $offsets = [0];
-        $pos = 0;
-        while (($pos = strpos($mappings, ';', $pos)) !== false) {
-            $offsets[] = $pos + 1;
-            $pos++;
+        $position = 0;
+        while (($position = strpos($mappings, ';', $position)) !== false) {
+            $offsets[] = $position + 1;
+            $position++;
         }
         $this->offsets = $offsets;
     }

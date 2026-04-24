@@ -268,12 +268,12 @@ class SourceMapLookup
      */
     public function lookup(int $line, int $column): ?Position
     {
-        $lineIdx = $line - 1;
-        if ($lineIdx < 0 || $lineIdx >= $this->lineIndex->count()) {
+        $zeroBasedLine = $line - 1;
+        if ($zeroBasedLine < 0 || $zeroBasedLine >= $this->lineIndex->count()) {
             return null;
         }
 
-        $packed = $this->segmentsForLine($lineIdx);
+        $packed = $this->segmentsForLine($zeroBasedLine);
         if ($packed === '') {
             return null;
         }
@@ -393,22 +393,22 @@ class SourceMapLookup
     {
         $index = [];
         $total = $this->lineIndex->count();
-        for ($lineIdx = 0; $lineIdx < $total; $lineIdx++) {
-            $packed = $this->segmentsForLine($lineIdx);
+        for ($zeroBasedLine = 0; $zeroBasedLine < $total; $zeroBasedLine++) {
+            $packed = $this->segmentsForLine($zeroBasedLine);
             if ($packed === '') {
                 continue;
             }
             $count = intdiv(strlen($packed), Segment::SIZE);
             for ($i = 0; $i < $count; $i++) {
-                $seg = Segment::fromPacked($packed, $i);
-                if (! $seg->isMapped()) {
+                $segment = Segment::fromPacked($packed, $i);
+                if (! $segment->isMapped()) {
                     continue;
                 }
-                $key = $seg->sourceLine.','.$seg->sourceColumn;
-                if (! isset($index[$seg->sourceIndex][$key])) {
-                    $index[$seg->sourceIndex][$key] = new GeneratedPosition(
-                        line: $lineIdx + 1,
-                        column: $seg->generatedColumn,
+                $key = $segment->sourceLine.','.$segment->sourceColumn;
+                if (! isset($index[$segment->sourceIndex][$key])) {
+                    $index[$segment->sourceIndex][$key] = new GeneratedPosition(
+                        line: $zeroBasedLine + 1,
+                        column: $segment->generatedColumn,
                     );
                 }
             }
@@ -417,20 +417,20 @@ class SourceMapLookup
         return $index;
     }
 
-    private function segmentsForLine(int $lineIdx): string
+    private function segmentsForLine(int $zeroBasedLine): string
     {
-        if (isset($this->segmentCache[$lineIdx])) {
-            return $this->segmentCache[$lineIdx];
+        if (isset($this->segmentCache[$zeroBasedLine])) {
+            return $this->segmentCache[$zeroBasedLine];
         }
 
-        // Find the nearest cached state before $lineIdx; walk forward from there.
-        $cursor = $lineIdx - 1;
+        // Find the nearest cached state before $zeroBasedLine; walk forward from there.
+        $cursor = $zeroBasedLine - 1;
         while ($cursor >= 0 && ! isset($this->stateCache[$cursor])) {
             $cursor--;
         }
         // $cursor is now either -1 (initial state) or the most recent parsed line.
 
-        for ($i = $cursor + 1; $i <= $lineIdx; $i++) {
+        for ($i = $cursor + 1; $i <= $zeroBasedLine; $i++) {
             [$packed, $newState] = LineParser::parse(
                 $this->mappings,
                 $this->lineIndex->offset($i),
@@ -443,7 +443,7 @@ class SourceMapLookup
             $this->stateCache[$i] = $newState;
         }
 
-        return $this->segmentCache[$lineIdx];
+        return $this->segmentCache[$zeroBasedLine];
     }
 
     /**
@@ -455,17 +455,17 @@ class SourceMapLookup
     private function findBestSegment(string $packed, int $column): ?Segment
     {
         $count = intdiv(strlen($packed), Segment::SIZE);
-        $lo = 0;
-        $hi = $count - 1;
+        $low = 0;
+        $high = $count - 1;
         $best = -1;
-        while ($lo <= $hi) {
-            $mid = ($lo + $hi) >> 1;
-            $genCol = unpack('l', $packed, $mid * Segment::SIZE)[1];
-            if ($genCol <= $column) {
-                $best = $mid;
-                $lo = $mid + 1;
+        while ($low <= $high) {
+            $middle = ($low + $high) >> 1;
+            $generatedColumn = unpack('l', $packed, $middle * Segment::SIZE)[1];
+            if ($generatedColumn <= $column) {
+                $best = $middle;
+                $low = $middle + 1;
             } else {
-                $hi = $mid - 1;
+                $high = $middle - 1;
             }
         }
 

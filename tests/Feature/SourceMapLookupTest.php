@@ -96,13 +96,13 @@ it('returns a position for a 4-field mapped segment', function () {
         'names' => [],
         'mappings' => 'AAAA',
     ]);
-    $pos = $map->lookup(1, 0);
-    expect($pos)->not->toBeNull();
-    expect($pos->sourceLine)->toBe(1);     // 0-based 0 -> 1-based 1
-    expect($pos->sourceColumn)->toBe(0);
-    expect($pos->sourceFileName)->toBe('src/a.ts');
-    expect($pos->sourceFileIndex)->toBe(0);
-    expect($pos->name)->toBeNull();
+    $position = $map->lookup(1, 0);
+    expect($position)->not->toBeNull();
+    expect($position->sourceLine)->toBe(1);     // 0-based 0 -> 1-based 1
+    expect($position->sourceColumn)->toBe(0);
+    expect($position->sourceFileName)->toBe('src/a.ts');
+    expect($position->sourceFileIndex)->toBe(0);
+    expect($position->name)->toBeNull();
 });
 
 it('returns a position with name for a 5-field segment', function () {
