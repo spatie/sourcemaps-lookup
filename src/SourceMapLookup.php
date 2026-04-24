@@ -32,21 +32,44 @@ class SourceMapLookup
 
     private string $sourceRoot;
 
+    /** Precomputed `$sourceRoot` with a trailing `/`; empty string when no sourceRoot. */
     private string $sourceRootPrefix;
 
-    /** @var array<int, true> */
+    /** @var array<int, true> Source indices flagged as third-party by `ignoreList`. */
     private array $ignoredIndices = [];
 
-    /** @var array<string, true>|null */
+    /**
+     * Lazy name→true map built on the first `isIgnored()` call. Covers both
+     * raw `sources[]` entries and their `sourceRoot`-resolved forms.
+     *
+     * @var array<string, true>|null
+     */
     private ?array $ignoredNames = null;
 
-    /** @var array<int, array<string, GeneratedPosition>>|null */
+    /**
+     * Reverse index: fileIndex => ("sourceLine,sourceColumn" => GeneratedPosition).
+     * Built lazily on first findGenerated() call; null until then.
+     *
+     * @var array<int, array<string, GeneratedPosition>>|null
+     */
     private ?array $reverseIndex = null;
 
-    /** @var array<int, list<string>|null> */
+    /**
+     * Lazy per-file split of `sourcesContent` into lines, used by scopeAt().
+     * A `null` entry means the source has no inlined content.
+     *
+     * @var array<int, list<string>|null>
+     */
     private array $splitLines = [];
 
-    /** @var array<string, list<array{name: ?string, line: int, column: int}>> */
+    /**
+     * Walk-back chain cache keyed by "fileIndex,sourceLine,maxLinesBack".
+     * Stores the raw WalkBack::find() result so the Scope objects wrapping
+     * it stay query-specific (their innermost Position carries the queried
+     * column).
+     *
+     * @var array<string, list<array{name: ?string, line: int, column: int}>>
+     */
     private array $scopeChainCache = [];
 
     private function __construct(array $data, ?SourceMapParserDriver $driver = null)
