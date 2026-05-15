@@ -20,4 +20,7 @@ phpunit.xml
 # Project-specific
 /benchmarks/fixtures/*.js.map
 /benchmarks/fixtures/node_modules/
+/benchmarks/profile/output/
 /docs/superpowers/
+
+.DS_Store

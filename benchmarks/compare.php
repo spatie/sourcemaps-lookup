@@ -4,9 +4,7 @@ declare(strict_types=1);
 use Spatie\SourcemapsLookup\Benchmarks\Adapters\AxyAdapter;
 use Spatie\SourcemapsLookup\Benchmarks\Adapters\OursAdapter;
 use Spatie\SourcemapsLookup\Benchmarks\Adapters\RustAdapter;
-use Spatie\SourcemapsLookup\Internal\LineIndex;
-use Spatie\SourcemapsLookup\Internal\LineParser;
-use Spatie\SourcemapsLookup\Internal\Segment;
+use Spatie\SourcemapsLookup\Benchmarks\BenchmarkPoints;
 
 require __DIR__.'/../vendor/autoload.php';
 
@@ -87,69 +85,13 @@ foreach ($pointFiles as $pf) {
 }
 
 /**
- * Pre-compute 20 (line, column) positions that hit ~5 distinct source files.
- * Uses our own LineIndex + LineParser — spec-compliant and fast (lazy, early-exits
- * on first 20 hits). axy's find() was tried first but eagerly traverses the entire
- * map and timed out on the 6 MB large fixture.
+ * Pre-compute 20 (line, column) positions that hit up to 5 distinct source files.
+ * axy's find() was tried first but eagerly traverses the entire map and timed out
+ * on the 6 MB large fixture.
  */
 function pickScenarioBPoints(string $fixturePath): string
 {
-    $data = json_decode(file_get_contents($fixturePath), true, 512, JSON_THROW_ON_ERROR);
-    $mappings = $data['mappings'] ?? '';
-    $lineIndex = new LineIndex($mappings);
-    $totalLines = $lineIndex->count();
-
-    $maxFiles = 5;
-    $maxPoints = 20;
-    $chosenFiles = [];
-    $points = [];
-    $state = [0, 0, 0, 0];
-    $oracleStart = hrtime(true);
-    $deadline = microtime(true) + 10; // 10s cap on oracle prep
-
-    for ($lineIdx = 0; $lineIdx < $totalLines; $lineIdx++) {
-        if (microtime(true) > $deadline) {
-            fwrite(STDERR, sprintf(
-                "\n    oracle hit 10s deadline at line %d/%d with %d points — using what we have\n",
-                $lineIdx, $totalLines, count($points)
-            ));
-            break;
-        }
-        [$packed, $state] = LineParser::parse(
-            $mappings,
-            $lineIndex->offset($lineIdx),
-            $lineIndex->end($lineIdx),
-            $state
-        );
-        $segCount = intdiv(strlen($packed), Segment::SIZE);
-        for ($si = 0; $si < $segCount; $si++) {
-            $seg = Segment::fromPacked($packed, $si);
-            if (! $seg->isMapped()) {
-                continue;
-            }
-            $fi = $seg->sourceIndex;
-            if (! isset($chosenFiles[$fi])) {
-                if (count($chosenFiles) >= $maxFiles) {
-                    continue;
-                }
-                $chosenFiles[$fi] = true;
-            }
-            $points[] = [$lineIdx + 1, $seg->generatedColumn];
-            if (count($points) >= $maxPoints) {
-                break 2;
-            }
-        }
-    }
-
-    // Tiny-fixture guard: cycle to 20 if we ran out.
-    while (count($points) > 0 && count($points) < $maxPoints) {
-        $points[] = $points[count($points) % count($points)];
-    }
-
-    $tmp = tempnam(sys_get_temp_dir(), 'bench-points-');
-    file_put_contents($tmp, json_encode($points));
-
-    return $tmp;
+    return BenchmarkPoints::writeTemp(BenchmarkPoints::pick($fixturePath));
 }
 
 printTable($grouped);

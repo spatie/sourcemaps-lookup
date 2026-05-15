@@ -3,37 +3,39 @@ title: Benchmarks
 weight: 7
 ---
 
-Measured on an Apple M1 Pro (PHP 8.5.2), median of 10 runs, each in an isolated PHP subprocess to get clean peak memory numbers. `axy/sourcemap` 1.x is included as a baseline, since it's the main existing option for Source Map v3 work in PHP.
+Measured on an Apple M4 Pro with PHP 8.5.3. Each table reports the median of 10 runs. Each sample runs in an isolated PHP subprocess to keep peak memory numbers comparable.
+
+`axy/sourcemap` 1.1.0 is included as a baseline because it is the main existing Source Map v3 option for PHP.
 
 Scenarios:
 
-- **A**: parse + 1 lookup (cold path).
-- **B**: parse + 20 lookups across about 5 distinct source files (realistic stack trace).
-- **C**: parse + 20 lookups on a single line in the middle of the map (worst case for lazy parsing. The first lookup must decode everything up to that line, the remaining 19 are cached).
+- **A**: driver load + 1 lookup.
+- **B**: driver load + 20 lookups across five source files.
+- **C**: driver load + 20 lookups on a single line in the middle of the map. This is intentionally hard for lazy parsing because the first lookup must decode mappings up to that line, while the remaining 19 are cached.
 
 Adapters:
 
 - **axy**: `axy/sourcemap` v1 baseline.
-- **ours**: pure-PHP default driver.
+- **ours**: pure-PHP driver.
 - **rust**: optional Rust backend via `spatie/sourcemaps-lookup-rust`.
 
-```
-fixture  sc     axy(wall)   ours(wall)   rust(wall)  Δours  Δrust     axy(peak)    ours(peak)    rust(peak)  Δours  Δrust
----------------------------------------------------------------------------------------------------------------------------
-small    A           3.02         1.23         1.20    -59%    -60%          4.00          4.00          4.00     +0%     +0%
-small    B           7.72         1.33         1.28    -83%    -83%          4.00          4.00          4.00     +0%     +0%
-small    C           7.85         1.28         1.21    -84%    -85%          4.00          4.00          4.00     +0%     +0%
-medium   A          34.36         1.33         1.32    -96%    -96%         26.00          4.00          4.00    -85%    -85%
-medium   B          34.37         1.37         1.38    -96%    -96%         26.00          4.00          4.00    -85%    -85%
-medium   C          34.65         1.95         1.97    -94%    -94%         26.00          4.00          4.00    -85%    -85%
-large    A         274.16         2.41         2.39    -99%    -99%        190.97         15.95         15.95    -92%    -92%
-large    B         281.06         2.53         2.44    -99%    -99%        190.97         15.95         15.95    -92%    -92%
-large    C         282.24         8.68         8.54    -97%    -97%        190.97         15.95         15.95    -92%    -92%
+```text
+fixture  sc     axy(wall)   ours(wall)   rust(wall)  ours vs axy  rust vs axy     axy(peak)    ours(peak)    rust(peak)
+------------------------------------------------------------------------------------------------------------------------
+small    A           3.43         2.00         1.50         -42%         -56%          4.00          4.00          4.00
+small    B           8.48         2.09         1.58         -75%         -81%          4.00          4.00          4.00
+small    C           8.52         1.97         1.44         -77%         -83%          4.00          4.00          4.00
+medium   A          36.79         0.62         1.58         -98%         -96%         26.00          4.00          4.00
+medium   B          36.80         1.94         1.66         -95%         -95%         26.00          4.00          4.00
+medium   C          36.68        13.47         2.23         -63%         -94%         26.00          6.00          4.00
+large    A         292.28         2.84         2.75         -99%         -99%        190.97         17.97         15.95
+large    B         291.81         3.24         2.83         -99%         -99%        190.97         17.97         15.95
+large    C         289.41        88.36         9.35         -69%         -97%        190.97         36.47         15.95
 ```
 
-Wall times are in ms, peak memory in MiB. `Δours` and `Δrust` compare against the `axy` baseline.
+Wall times are in milliseconds. Peak memory is in MiB.
 
-Both `ours` and `rust` beat the axy baseline by one-to-two orders of magnitude. The Rust backend currently matches `ours` within noise on these workloads: the pure-PHP driver's lazy per-line decoder already avoids the hot path's bottleneck (full-map parsing), so the FFI version gains little on these scenarios. The Rust backend remains useful when full-map traversal is needed (reverse indexes, exhaustive iteration) — workloads not covered by this suite.
+The pure-PHP driver is much faster than `axy/sourcemap` for stack-trace-shaped lookups because it lazily decodes only the generated lines it needs. The Rust backend is a small win for normal shallow lookups and a large win for cold lookups deep into a large map.
 
 Run it yourself:
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Spatie\SourcemapsLookup\Benchmarks\Adapters;
 
+use Spatie\SourcemapsLookup\Drivers\PhpParserDriver;
 use Spatie\SourcemapsLookup\SourceMapLookup;
 
 class OursAdapter
@@ -12,7 +13,11 @@ class OursAdapter
 
     public function load(array $data): void
     {
-        $this->map = SourceMapLookup::fromArray($data);
+        // Force the pure-PHP driver. Without an explicit driver,
+        // SourceMapLookup::autoPickDriver() returns RustParserDriver whenever
+        // the Rust binary is installed, which silently turns "ours" into "rust"
+        // in benchmarks and profiles.
+        $this->map = SourceMapLookup::fromArray($data, new PhpParserDriver());
     }
 
     /** @return array{line:int,column:int,fileName:?string,name:?string}|null */
