@@ -35,6 +35,7 @@ $rows = [];
 foreach ($fixtures as $fixName => $fixPath) {
     if (! is_file($fixPath)) {
         fwrite(STDERR, "skip $fixName (missing)\n");
+
         continue;
     }
 
@@ -48,10 +49,11 @@ foreach ($fixtures as $fixName => $fixPath) {
         for ($i = 0; $i < RUNS; $i++) {
             $r = runOne($adClass, $fixPath, $pointsFile);
             if ($r === null) {
-                fwrite(STDERR, "x");
+                fwrite(STDERR, 'x');
+
                 continue;
             }
-            fwrite(STDERR, ".");
+            fwrite(STDERR, '.');
             $samples[] = $r;
         }
         fwrite(STDERR, "\n");
@@ -75,7 +77,9 @@ function runOne(string $class, string $fix, string $points): ?array
         escapeshellarg($points),
     );
     $p = proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-    if ($p === false) return null;
+    if ($p === false) {
+        return null;
+    }
     stream_set_blocking($pipes[1], false);
     stream_set_blocking($pipes[2], false);
     $out = '';
@@ -92,17 +96,23 @@ function runOne(string $class, string $fix, string $points): ?array
         }
         if (microtime(true) >= $deadline) {
             proc_terminate($p, 9);
-            fclose($pipes[1]); fclose($pipes[2]); proc_close($p);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            proc_close($p);
+
             return null;
         }
         usleep(10_000);
     }
-    fclose($pipes[1]); fclose($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
     if (proc_close($p) !== 0) {
         fwrite(STDERR, "\n  err: ".substr(trim($err), 0, 200)."\n");
+
         return null;
     }
     $j = json_decode($out, true);
+
     return is_array($j) ? $j : null;
 }
 
@@ -115,11 +125,13 @@ function medianPhases(array $samples): array
         $vals = array_filter(array_column($samples, $k), fn ($v) => $v !== null);
         if (empty($vals)) {
             $out[$k] = null;
+
             continue;
         }
         sort($vals);
         $out[$k] = $vals[(int) (count($vals) / 2)];
     }
+
     return $out;
 }
 
@@ -154,7 +166,10 @@ function printMarkdown(array $rows): void
 
 function formatCell(string $key, mixed $v): string
 {
-    if ($v === null) return '-';
+    if ($v === null) {
+        return '-';
+    }
+
     return match ($key) {
         'fixture', 'adapter' => (string) $v,
         'peak_bytes' => number_format($v / 1_048_576, 1),

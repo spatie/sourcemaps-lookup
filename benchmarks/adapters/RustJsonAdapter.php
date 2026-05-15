@@ -27,7 +27,7 @@ class RustJsonAdapter
 
     public function loadJson(string $json): void
     {
-        $this->driver = new RustJsonDriver();
+        $this->driver = new RustJsonDriver;
         $this->driver->loadJson($json);
     }
 

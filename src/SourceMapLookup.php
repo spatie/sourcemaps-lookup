@@ -179,7 +179,7 @@ class SourceMapLookup
             && extension_loaded('ffi')
             && $rustClass::isAvailable()) {
             try {
-                return new $rustClass();
+                return new $rustClass;
             } catch (\Throwable) {
                 // Binary load, FFI init, or probe failed after isAvailable() lied.
                 // Fall through to PHP driver. Explicit callers get strict errors;
@@ -187,7 +187,7 @@ class SourceMapLookup
             }
         }
 
-        return new PhpParserDriver();
+        return new PhpParserDriver;
     }
 
     /** @return list<?string> */

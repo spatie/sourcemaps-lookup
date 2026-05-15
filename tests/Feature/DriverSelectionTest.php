@@ -21,13 +21,29 @@ it('auto-picks PhpParserDriver when no Rust subpackage is installed', function (
 });
 
 it('accepts an explicit driver instance', function () {
-    $driver = new class implements SourceMapParserDriver {
+    $driver = new class implements SourceMapParserDriver
+    {
         public bool $loaded = false;
 
-        public function load(string $m, int $sc, int $nc): void { $this->loaded = true; }
-        public function lineCount(): int { return 0; }
-        public function lookup(int $l, int $c): ?RawSegment { return null; }
-        public function segmentsForLine(int $l): iterable { return []; }
+        public function load(string $m, int $sc, int $nc): void
+        {
+            $this->loaded = true;
+        }
+
+        public function lineCount(): int
+        {
+            return 0;
+        }
+
+        public function lookup(int $l, int $c): ?RawSegment
+        {
+            return null;
+        }
+
+        public function segmentsForLine(int $l): iterable
+        {
+            return [];
+        }
     };
 
     SourceMapLookup::fromArray(
@@ -39,14 +55,32 @@ it('accepts an explicit driver instance', function () {
 });
 
 it('forwards sourceCount and nameCount to the driver', function () {
-    $driver = new class implements SourceMapParserDriver {
+    $driver = new class implements SourceMapParserDriver
+    {
         public int $sc = -1;
+
         public int $nc = -1;
 
-        public function load(string $m, int $sc, int $nc): void { $this->sc = $sc; $this->nc = $nc; }
-        public function lineCount(): int { return 0; }
-        public function lookup(int $l, int $c): ?RawSegment { return null; }
-        public function segmentsForLine(int $l): iterable { return []; }
+        public function load(string $m, int $sc, int $nc): void
+        {
+            $this->sc = $sc;
+            $this->nc = $nc;
+        }
+
+        public function lineCount(): int
+        {
+            return 0;
+        }
+
+        public function lookup(int $l, int $c): ?RawSegment
+        {
+            return null;
+        }
+
+        public function segmentsForLine(int $l): iterable
+        {
+            return [];
+        }
     };
 
     SourceMapLookup::fromArray(
@@ -61,7 +95,7 @@ it('forwards sourceCount and nameCount to the driver', function () {
 it('accepts PhpParserDriver as an explicit override', function () {
     $map = SourceMapLookup::fromArray(
         ['version' => 3, 'sources' => ['a.js'], 'mappings' => 'AAAA'],
-        new PhpParserDriver(),
+        new PhpParserDriver,
     );
 
     expect($map->lookup(1, 0))->not->toBeNull();

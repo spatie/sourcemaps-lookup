@@ -16,7 +16,7 @@ class RustAdapter
 
     public function load(array $data): void
     {
-        $this->driver = new RustParserDriver();
+        $this->driver = new RustParserDriver;
         $this->map = SourceMapLookup::fromArray($data, $this->driver);
     }
 

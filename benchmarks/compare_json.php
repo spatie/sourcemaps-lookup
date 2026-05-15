@@ -40,6 +40,7 @@ $pointFiles = [];
 foreach ($fixtures as $fixName => $fixPath) {
     if (! is_file($fixPath)) {
         fwrite(STDERR, "skip $fixName (missing)\n");
+
         continue;
     }
 
@@ -65,6 +66,7 @@ foreach ($fixtures as $fixName => $fixPath) {
             $proc = proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
             if ($proc === false) {
                 fwrite(STDERR, "proc_open failed\n");
+
                 continue 2;
             }
             stream_set_blocking($pipes[1], false);
@@ -87,6 +89,7 @@ foreach ($fixtures as $fixName => $fixPath) {
                     fclose($pipes[2]);
                     proc_close($proc);
                     fwrite(STDERR, "timeout\n");
+
                     continue 3;
                 }
                 usleep(10_000);
@@ -95,12 +98,14 @@ foreach ($fixtures as $fixName => $fixPath) {
             fclose($pipes[2]);
             $exit = proc_close($proc);
             if ($exit !== 0) {
-                fwrite(STDERR, "x(exit=$exit: ".substr(trim($err), 0, 120).")");
+                fwrite(STDERR, "x(exit=$exit: ".substr(trim($err), 0, 120).')');
+
                 continue;
             }
             $r = json_decode($out, true);
             if (! is_array($r)) {
                 fwrite(STDERR, 'x(bad output)');
+
                 continue;
             }
             fwrite(STDERR, '.');
@@ -147,10 +152,10 @@ function assertAdapterMatchesOurs(string $adapterClass, string $fixturePath, str
     $json = file_get_contents($fixturePath);
     $data = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
 
-    $expected = new OursAdapter();
+    $expected = new OursAdapter;
     $expected->load($data);
 
-    $actual = new $adapterClass();
+    $actual = new $adapterClass;
     if ($actual instanceof RustJsonAdapter) {
         $actual->loadJson($json);
     } else {

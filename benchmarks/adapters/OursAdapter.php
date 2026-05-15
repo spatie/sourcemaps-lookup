@@ -17,7 +17,7 @@ class OursAdapter
         // SourceMapLookup::autoPickDriver() returns RustParserDriver whenever
         // the Rust binary is installed, which silently turns "ours" into "rust"
         // in benchmarks and profiles.
-        $this->map = SourceMapLookup::fromArray($data, new PhpParserDriver());
+        $this->map = SourceMapLookup::fromArray($data, new PhpParserDriver);
     }
 
     /** @return array{line:int,column:int,fileName:?string,name:?string}|null */

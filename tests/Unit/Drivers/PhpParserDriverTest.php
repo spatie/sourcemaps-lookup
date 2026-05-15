@@ -16,14 +16,14 @@ use Spatie\SourcemapsLookup\Exceptions\InvalidSourceMap;
 const TINY_MAPPINGS = 'AAAA;KACE';
 
 it('loads mappings and reports line count', function () {
-    $d = new PhpParserDriver();
+    $d = new PhpParserDriver;
     $d->load(TINY_MAPPINGS, sourceCount: 1, nameCount: 0);
 
     expect($d->lineCount())->toBe(2);
 });
 
 it('lookup returns nearest-preceding segment for a mapped line', function () {
-    $d = new PhpParserDriver();
+    $d = new PhpParserDriver;
     $d->load(TINY_MAPPINGS, sourceCount: 1, nameCount: 0);
 
     $seg = $d->lookup(line: 1, column: 10);
@@ -37,14 +37,14 @@ it('lookup returns nearest-preceding segment for a mapped line', function () {
 });
 
 it('lookup returns null when line is out of range', function () {
-    $d = new PhpParserDriver();
+    $d = new PhpParserDriver;
     $d->load(TINY_MAPPINGS, sourceCount: 1, nameCount: 0);
 
     expect($d->lookup(line: 42, column: 0))->toBeNull();
 });
 
 it('lookup returns null when no segment precedes the column', function () {
-    $d = new PhpParserDriver();
+    $d = new PhpParserDriver;
     $d->load(TINY_MAPPINGS, sourceCount: 1, nameCount: 0);
 
     // First segment on line 1 is at gen col 5; querying col 2 returns null.
@@ -52,7 +52,7 @@ it('lookup returns null when no segment precedes the column', function () {
 });
 
 it('segmentsForLine yields mapped segments in order', function () {
-    $d = new PhpParserDriver();
+    $d = new PhpParserDriver;
     $d->load(TINY_MAPPINGS, sourceCount: 1, nameCount: 0);
 
     $segs = iterator_to_array($d->segmentsForLine(0), preserve_keys: false);
@@ -63,14 +63,14 @@ it('segmentsForLine yields mapped segments in order', function () {
 });
 
 it('throws InvalidSourceMap on out-of-range sourceIndex', function () {
-    $d = new PhpParserDriver();
+    $d = new PhpParserDriver;
     $d->load(TINY_MAPPINGS, sourceCount: 0, nameCount: 0);
 
     $d->lookup(line: 0, column: 0);
 })->throws(InvalidSourceMap::class);
 
 it('caches parsed lines across repeat lookups', function () {
-    $d = new PhpParserDriver();
+    $d = new PhpParserDriver;
     $d->load(TINY_MAPPINGS, sourceCount: 1, nameCount: 0);
 
     // Warm the cache.
@@ -84,7 +84,7 @@ it('caches parsed lines across repeat lookups', function () {
 
 it('segmentsForLine skips unmapped (1-field) segments', function () {
     // "AAAA" = mapped at gen col 0; "K" = 1-field unmapped at gen col 5.
-    $d = new PhpParserDriver();
+    $d = new PhpParserDriver;
     $d->load('AAAA,K', sourceCount: 1, nameCount: 0);
 
     $segs = iterator_to_array($d->segmentsForLine(0), preserve_keys: false);
@@ -95,7 +95,7 @@ it('segmentsForLine skips unmapped (1-field) segments', function () {
 
 it('lookup binary-searches for the nearest-preceding segment', function () {
     // Three segments at absolute gen cols 0, 3, 6.
-    $d = new PhpParserDriver();
+    $d = new PhpParserDriver;
     $d->load('AAAA,GAAA,GAAA', sourceCount: 1, nameCount: 0);
 
     expect($d->lookup(0, 2)->generatedColumn)->toBe(0);  // before col 3 → first segment
@@ -105,7 +105,7 @@ it('lookup binary-searches for the nearest-preceding segment', function () {
 
 it('walks forward through uncached lines when queried line skips ahead', function () {
     // 6 lines, all mapping to source 0, source line 0, column 0.
-    $d = new PhpParserDriver();
+    $d = new PhpParserDriver;
     $d->load('AAAA;AAAA;AAAA;AAAA;AAAA;AAAA', sourceCount: 1, nameCount: 0);
 
     // First lookup on line 5 — forces walkforward from the prelude state.
@@ -117,7 +117,7 @@ it('walks forward through uncached lines when queried line skips ahead', functio
 
 it('throws InvalidSourceMap on out-of-range nameIndex', function () {
     // "AAAAA" = 5-field segment with nameIndex=0; nameCount=0 is out of range.
-    $d = new PhpParserDriver();
+    $d = new PhpParserDriver;
     $d->load('AAAAA', sourceCount: 1, nameCount: 0);
 
     $d->lookup(line: 0, column: 0);

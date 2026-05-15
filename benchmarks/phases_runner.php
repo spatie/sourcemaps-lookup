@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 require __DIR__.'/../vendor/autoload.php';
 
+use Spatie\SourcemapsLookup\Benchmarks\Adapters\RustAdapter;
 use Spatie\SourcemapsLookupRust\RustParserDriver;
 
 [$_, $adapterClass, $fixture, $pointsFile] = $argv;
@@ -45,7 +46,7 @@ $t_warm_lookups = hrtime(true) - $t0;
 // Rust-only: same warm points via batched FFI, plus FFI-overhead probe.
 $t_batch_lookups = null;
 $t_ffi_overhead_per_call = null;
-if ($adapter instanceof \Spatie\SourcemapsLookup\Benchmarks\Adapters\RustAdapter
+if ($adapter instanceof RustAdapter
     || method_exists($adapter, 'lookupMany')) {
     $t0 = hrtime(true);
     $adapter->lookupMany($warmPoints);
@@ -56,10 +57,10 @@ if ($adapter instanceof \Spatie\SourcemapsLookup\Benchmarks\Adapters\RustAdapter
 // only the FFI call cost. Only when the adapter under test actually uses Rust;
 // otherwise loading the dylib here would pollute the OursAdapter / AxyAdapter
 // samply traces.
-$isRustAdapter = $adapter instanceof \Spatie\SourcemapsLookup\Benchmarks\Adapters\RustAdapter
+$isRustAdapter = $adapter instanceof RustAdapter
     || method_exists($adapter, 'lookupMany');
 if ($isRustAdapter && RustParserDriver::isAvailable()) {
-    $rust = new RustParserDriver();
+    $rust = new RustParserDriver;
     $rust->load('AAAA', 1, 0); // tiny map
     $iters = 5000;
     $t0 = hrtime(true);
