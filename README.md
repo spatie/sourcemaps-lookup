@@ -1,7 +1,7 @@
 # Fast and memory-efficient JavaScript source map lookup for PHP
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/spatie/sourcemaps-lookup.svg?style=flat-square)](https://packagist.org/packages/spatie/sourcemaps-lookup)
-[![Tests](https://img.shields.io/github/actions/workflow/status/spatie/sourcemaps-lookup/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/spatie/sourcemaps-lookup/actions/workflows/run-tests.yml)
+[![Tests](https://github.com/spatie/sourcemaps-lookup/actions/workflows/run-tests.yml/badge.svg)](https://github.com/spatie/sourcemaps-lookup/actions/workflows/run-tests.yml)
 [![Total Downloads](https://img.shields.io/packagist/dt/spatie/sourcemaps-lookup.svg?style=flat-square)](https://packagist.org/packages/spatie/sourcemaps-lookup)
 
 `spatie/sourcemaps-lookup` resolves JavaScript stack frame positions against a [Source Map v3](https://tc39.es/ecma426/) file. It returns the original source file, line, column, symbol name, and enclosing scope. The package is tuned for stack frame resolution (for example, symbolicating JavaScript errors using an uploaded source map), and is narrowly focused on the read path. It does not write, merge, or transform maps.
